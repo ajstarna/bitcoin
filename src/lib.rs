@@ -1,10 +1,9 @@
-type Hash = u32; // TODO: figure this out with a library for sha256 or what not. should be 32 bytes long
 
-struct Transaction {
-}
+mod transaction;
+use transaction::{Hash, Transaction};
 
 struct BlockHeader {
-    version: str, // 4 bytes: A version number to track software/protocol upgrades
+    version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
     time_stamp: u32, // 4 bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
@@ -12,15 +11,21 @@ struct BlockHeader {
     nonce: u32, // 4 bytes: A counter used for the Proof-of-Work algorithm
 }
 
+struct TransactionList {
+    transactions: Vec<Transaction>,    
+}
+impl TransactionList {
+    pub fn get_merkle_root(self) -> Hash {
+	5
+    }
+}
+
 struct Block {
     block_size: u32,
     block_header: BlockHeader,
     transaction_count: u32,
-    transactions: Vec<Transaction>,
+    transaction_list: TransactionList,
     
 }
 
-fn main() {
-    println!("Hello, world!");
-}
 
