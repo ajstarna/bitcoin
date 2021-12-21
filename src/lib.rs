@@ -2,6 +2,7 @@
 mod transaction;
 use transaction::{Hash, Transaction};
 
+
 struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
