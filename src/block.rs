@@ -1,5 +1,3 @@
-
-mod transaction;
 use transaction::{Hash, Transaction};
 
 
@@ -28,5 +26,3 @@ struct Block {
     transaction_list: TransactionList,
     
 }
-
-

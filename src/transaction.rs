@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 //use super::validation::{LockingScript, UnlockingScript, is_valid};
 
 pub type Hash = u32; // TODO: figure this out with a library for sha256 or what not. should be 32 bytes long
@@ -53,7 +54,6 @@ pub struct Transaction {
     tx_ins: Vec<TXIn>,
     tx_outs: Vec<TXOut>,    
 }
-
 
 
 pub fn is_valid(transaction: Transaction) -> bool {
