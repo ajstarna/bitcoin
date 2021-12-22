@@ -1,39 +1,34 @@
-use std::collections::HashMap;
 //use super::validation::{LockingScript, UnlockingScript, is_valid};
 
 pub type Hash = u32; // TODO: figure this out with a library for sha256 or what not. should be 32 bytes long
 
 
-enum StackOp {
+pub enum StackOp {
     Push(u32),    
     OpAdd,
     OpDup,
     //OP_HASH_160,
-    OpEqual
+    OpEqual,
+    OpChecksig,
     //OP_VERIFY,
     //OP_EQ_VERIFY,
-    //OP_CHECKSIG
 }
 
 /// The unlocking script when combined with a locking script and executed on the stack satisfies
 /// the requirment for ownership of the utxo
-struct UnlockingScript {
-    ops: Vec<StackOp>,
-}
-
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
-struct LockingScript {
+pub struct Script {
     ops: Vec<StackOp>
 }
 
-enum TXIn {
+pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
-    TXPrevious {
+    TxPrevious {
 	tx_hash: Hash, // Hash of the transaction that we are getting this input from
 	tx_out_index: u32,// The index of the tx_out within the transaction
-	unlocking_script: UnlockingScript, // AKA: ScriptSig, but lets follow Mastering Bitcoin's convention
+	unlocking_script: Script, // AKA: ScriptSig, but lets follow Mastering Bitcoin's convention
 	sequence: u32, // TODO: what is this haha
     },
     Coinbase {
@@ -43,22 +38,22 @@ enum TXIn {
 }
 
 
-struct TXOut {
+pub struct TxOut {
     value: u32, // number of Eves 
-    locking_script: LockingScript, // AKA: ScriptPubKey, but following Master Bitcoin's convention
+    locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
 pub struct Transaction {
     version: u32,
     lock_time: u32,
-    tx_ins: Vec<TXIn>,
-    tx_outs: Vec<TXOut>,    
+    tx_ins: Vec<TxIn>,
+    tx_outs: Vec<TxOut>,    
 }
 
 
 pub fn is_valid(transaction: Transaction) -> bool {
     for tx_in in &transaction.tx_ins {
-	if let TXIn::TXPrevious { tx_hash, tx_out_index, unlocking_script, sequence} = tx_in {
+	if let TxIn::TxPrevious { tx_hash, tx_out_index, unlocking_script, sequence} = tx_in {
 	    // we only need to consider normal tx-ins here. Coinbase transactions should be checked separately
 	    println!("{}",tx_hash);
 	}
@@ -76,22 +71,22 @@ mod tests {
 
     #[test]
     fn test_coin_base() {
-	let tx_in = TXIn::Coinbase {
+	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
 	    sequence: 5580,
 	};
-	if let TXIn::Coinbase {coinbase, sequence} = tx_in {
+	if let TxIn::Coinbase {coinbase, sequence} = tx_in {
             assert_eq!(33, coinbase);
 	}
     }
 
     #[test]
     fn val() {
-	let tx_in = TXIn::Coinbase {
+	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
 	    sequence: 5580,
 	};
-	let tx_out = TXOut { value: 2, locking_script: LockingScript {ops: vec![StackOp::OpDup]} };
+	let tx_out = TxOut { value: 2, locking_script: Script {ops: vec![StackOp::OpDup]} };
 	let transaction = Transaction {
 	    version: 1,
 	    lock_time: 100,
