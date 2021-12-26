@@ -1,12 +1,17 @@
 //use super::validation::{LockingScript, UnlockingScript, is_valid};
 
+use ecdsa::{SigningKey, VerifyingKey};
+use k256::{Secp256k1};
+
 pub type Hash = u32; // TODO: figure this out with a library for sha256 or what not. should be 32 bytes long
 
 
 pub enum StackOp {
-    Push(u32),    
-    OpAdd,
-    OpDup,
+    PushVal(u32),
+    PushVerifyingKey(VerifyingKey<Secp256k1>),
+    PushSigningKey(SigningKey<Secp256k1>),	
+    //OpAdd,
+    //OpDup,
     //OP_HASH_160,
     OpEqual,
     OpChecksig,

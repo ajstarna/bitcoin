@@ -1,8 +1,13 @@
+use ecdsa::{SigningKey, VerifyingKey};
+use k256::{Secp256k1};
+
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
-    
+
+
+
 struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
@@ -55,12 +60,16 @@ impl BlockChain {
 
 
     fn construct_coinbase_tx_in(&self) -> TxIn {
-	let num_halvenings = self.height / BLOCK_HALVENING;
-	let coinbase = ORIGINAL_COINBASE / (2 as u32).pow(num_halvenings);
 	TxIn::Coinbase {
-	    coinbase: coinbase,
+	    coinbase: 12345, // TODO: figure this out (sorta arbitrary i think?)
 	    sequence: 5580,
 	}
+    }
+
+    fn determine_coinbase_reward(&self) -> u32 {
+	let num_halvenings = self.height / BLOCK_HALVENING;
+	let coinbase = ORIGINAL_COINBASE / (2 as u32).pow(num_halvenings);
+	coinbase
     }
     
     /// The first block in a blockchain, aka the "genesis block" needs to be created in a special way,
@@ -68,7 +77,11 @@ impl BlockChain {
     fn spawn_genesis_block(&mut self) {
 	assert!(self.is_empty()); // We can only spawn a genesis block when the blockchain is empty
 	let tx_in = self.construct_coinbase_tx_in();
-	let tx_out = TxOut { value: 2, locking_script: Script {ops: vec![StackOp::OpDup]} };
+	let reward = self.determine_coinbase_reward();
+	let tx_out = TxOut {
+	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
+	    locking_script: Script {ops: vec![StackOp::PushVal(21)]},      // PushVerifyingKey(TEST_PUBLIC_KEY)]}
+	};
 	let transaction = Transaction {
 	    version: 1,
 	    lock_time: 100,
