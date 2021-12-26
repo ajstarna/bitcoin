@@ -19,7 +19,7 @@ pub enum StackOp {
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
 pub struct Script {
-    ops: Vec<StackOp>
+    pub ops: Vec<StackOp>
 }
 
 pub enum TxIn {
@@ -39,15 +39,15 @@ pub enum TxIn {
 
 
 pub struct TxOut {
-    value: u32, // number of Eves 
-    locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
+    pub value: u32, // number of Eves 
+    pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
 pub struct Transaction {
-    version: u32,
-    lock_time: u32,
-    tx_ins: Vec<TxIn>,
-    tx_outs: Vec<TxOut>,    
+    pub version: u32,
+    pub lock_time: u32,
+    pub tx_ins: Vec<TxIn>,
+    pub tx_outs: Vec<TxOut>,    
 }
 
 
