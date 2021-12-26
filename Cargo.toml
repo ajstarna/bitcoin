@@ -1,3 +1,4 @@
+cargo-features = ["edition2021"] # some of the cryptography crates need this
 [package]
 name = "abam_coin"
 version = "0.1.0"
@@ -7,3 +8,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+sha2 = "0.10.0"
+ecdsa = "0.13.3"
+k256 = "0.10.0"
