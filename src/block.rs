@@ -49,7 +49,7 @@ impl BlockChain {
     /// Will mainly be called by the function that spawns the genesis block.
     /// We make it its own method so that if/when the data structure that holds the blockchain is changed,
     /// we have a modular location to check the length
-    fn is_empty(self) -> bool {
+    fn is_empty(&self) -> bool {
 	self.blocks.len() == 0
     }
 
