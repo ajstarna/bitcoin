@@ -11,7 +11,7 @@ pub enum StackOp {
     PushVerifyingKey(VerifyingKey<Secp256k1>),
     PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
-    //OpDup,
+    OpDup,
     //OP_HASH_160,
     OpEqual,
     OpChecksig,
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn val() {
+    fn test_invalid_block() {
 	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
 	    sequence: 5580,
