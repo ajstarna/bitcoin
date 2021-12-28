@@ -3,7 +3,7 @@
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 
-pub type Hash = u32; // TODO: figure this out with a library for sha256 or what not. should be 32 bytes long
+pub type Hash = [u8; 32]; // 32 bytes longs
 
 
 pub enum StackOp {
@@ -60,7 +60,7 @@ pub fn is_valid(transaction: Transaction) -> bool {
     for tx_in in &transaction.tx_ins {
 	if let TxIn::TxPrevious { tx_hash, tx_out_index, unlocking_script, sequence} = tx_in {
 	    // we only need to consider normal tx-ins here. Coinbase transactions should be checked separately
-	    println!("{}",tx_hash);
+	    println!("{:?}", tx_hash);
 	}
 
     }

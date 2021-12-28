@@ -1,3 +1,6 @@
+#![allow(dead_code)] // TODO: get rid
+#![allow(unused_variables)] // TODO: get rid
+
 use std::collections::HashMap;
 
 use ecdsa::{SigningKey, VerifyingKey};

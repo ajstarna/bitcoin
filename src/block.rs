@@ -1,5 +1,7 @@
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
+use sha2::{Sha256, Digest};
+use std::mem;
 
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
@@ -10,7 +12,7 @@ struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
-    time_stamp: u32, // 4 bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
+    time_stamp: u64, // 4  (8 is ok?) bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
     difficulty_target: u32, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
     nonce: Option<u32>, // 4 bytes: A counter used for the Proof-of-Work algorithm
 }
@@ -24,7 +26,7 @@ impl TransactionList {
     }
 	
     pub fn get_merkle_root(&self) -> Hash {
-	5
+	[0; 32]
     }
 }
 
@@ -77,6 +79,21 @@ impl BlockChain {
     }
 
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
+	// create a Sha256 object
+	let mut hasher = Sha256::new();
+
+	// write input message
+	hasher.update(b"hello world");
+	
+	// read hash digest and consume hasher
+	let result = hasher.finalize();
+	println!("result = {:?}", result);	
+	//println!("result[..] = {:?}", result[..]);	
+	//println!("result bytes = {:?}", result.as_bytes());	
+	let a: Vec<u8> = result[..].to_vec();
+
+	println!("a = {:?}", a);		
+	//assert_eq!(result[..], hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")[..]);
     }
 
 
@@ -91,6 +108,7 @@ impl BlockChain {
     /// recipient is the public/verifying key of the person who will receive the coinbase for this block
     fn spawn_genesis_block(&mut self, recipient: VerifyingKey<Secp256k1>) {
 	assert!(self.is_empty()); // We can only spawn a genesis block when the blockchain is empty
+	// let now = SystemTime::now();
 	let tx_in = self.construct_coinbase_tx_in();
 	let reward = self.determine_coinbase_reward();
 	let tx_out = TxOut {
@@ -106,10 +124,10 @@ impl BlockChain {
 	let transaction_list = TransactionList::new(vec![transaction]);
 	let mut block_header =  BlockHeader {
 	    version: 1, // 4 bytes: A version number to track software/protocol upgrades
-	    previous_block_hash: 0, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
+	    previous_block_hash: [0; 32], 
 	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
-	    time_stamp: 1, // TODO
-	    difficulty_target: 1, // TODO
+	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
+	    difficulty_target: 2^30, // TODO
 	    nonce: None, // this will get filled by the mining process
 	};
 	
@@ -126,7 +144,7 @@ impl BlockChain {
     }
 }
 
-
+use std::time::{SystemTime};
 
 #[cfg(test)]
 mod tests {
@@ -143,4 +161,5 @@ mod tests {
 	chain.spawn_genesis_block(public_key);
         assert_eq!(chain.height(), 1);	
     }
+
 }
