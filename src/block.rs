@@ -2,7 +2,7 @@ use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
 use std::mem;
-
+    
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
@@ -17,6 +17,23 @@ struct BlockHeader {
     nonce: Option<u32>, // 4 bytes: A counter used for the Proof-of-Work algorithm
 }
 
+
+impl BlockHeader {
+    fn hash(&self) -> Vec<u8> {
+        let mut hasher = Sha256::new();
+        hasher.update(self.version.to_be_bytes());
+	hasher.update(&self.previous_block_hash.bytes[..]);
+	hasher.update(&self.merkle_root.bytes[..]);
+        hasher.update(self.time_stamp.to_be_bytes());
+        hasher.update(self.difficulty_target.to_be_bytes());
+	if let Some(nonce) = self.nonce {
+            hasher.update(nonce.to_be_bytes());	    
+	}
+        hasher.finalize().to_vec()
+    }
+}
+
+
 struct TransactionList {
     transactions: Vec<Transaction>,    
 }
@@ -26,7 +43,7 @@ impl TransactionList {
     }
 	
     pub fn get_merkle_root(&self) -> Hash {
-	[0; 32]
+	Hash { bytes: Vec::with_capacity(32)}
     }
 }
 
@@ -78,22 +95,15 @@ impl BlockChain {
 	coinbase
     }
 
+    /// We try multiple nonce values, each time hashing the block header wtih Sha256,
+    /// once we have found a hash that satisfies the difficulty requirment, we return the block hash,
+    /// with the appropriate nonce field set
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
-	// create a Sha256 object
-	let mut hasher = Sha256::new();
-
-	// write input message
-	hasher.update(b"hello world");
-	
-	// read hash digest and consume hasher
-	let result = hasher.finalize();
-	println!("result = {:?}", result);	
-	//println!("result[..] = {:?}", result[..]);	
-	//println!("result bytes = {:?}", result.as_bytes());	
-	let a: Vec<u8> = result[..].to_vec();
-
-	println!("a = {:?}", a);		
-	//assert_eq!(result[..], hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")[..]);
+	for nonce in 0..50 {
+	    block_header.nonce = Some(nonce);
+	    let struct_hash = block_header.hash();
+	    println!("nonce = {:?}, hash = {:?}", nonce, struct_hash);
+	}
     }
 
 
@@ -124,7 +134,7 @@ impl BlockChain {
 	let transaction_list = TransactionList::new(vec![transaction]);
 	let mut block_header =  BlockHeader {
 	    version: 1, // 4 bytes: A version number to track software/protocol upgrades
-	    previous_block_hash: [0; 32], 
+	    previous_block_hash: Hash{ bytes: vec![0; 32]}, 
 	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
 	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
 	    difficulty_target: 2^30, // TODO

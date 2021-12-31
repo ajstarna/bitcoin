@@ -3,8 +3,10 @@
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 
-pub type Hash = [u8; 32]; // 32 bytes longs
-
+#[derive(Debug)]
+pub struct Hash {
+    pub bytes: Vec<u8>,
+}
 
 pub enum StackOp {
     PushVal(u32),
