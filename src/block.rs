@@ -99,10 +99,17 @@ impl BlockChain {
     /// once we have found a hash that satisfies the difficulty requirment, we return the block hash,
     /// with the appropriate nonce field set
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
-	for nonce in 0..50 {
+	let mut nonce: u32 = 0;
+	loop {
 	    block_header.nonce = Some(nonce);
 	    let struct_hash = block_header.hash();
 	    println!("nonce = {:?}, hash = {:?}", nonce, struct_hash);
+	    if struct_hash[0] == 0 && struct_hash[1] == 0{
+		// we have found a difficult enough hash value, so we are done
+		println!("Found a valid nonce for proof of work!");
+		break;
+	    }
+	    nonce += 1;
 	}
     }
 
