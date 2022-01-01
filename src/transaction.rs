@@ -8,6 +8,24 @@ pub struct Hash {
     pub bytes: Vec<u8>,
 }
 
+impl Hash {
+    /// given a Vec of bytes,, this method says if the hash one is less than
+    /// the given Vec, when interpreted as one long integer value.
+    /// we iterate over the bytes from most to least significant, and as soon as there
+    /// is a discrepancy, we know the answer, and we can return.
+    /// If we make it to the end of the vectors, then the vectors were exactly equal - hence we return false
+    pub fn is_less_than(&self, compare: & Vec<u8>) -> bool {
+	for (x, y) in self.bytes.iter().zip(compare) {
+	    if x == y {
+		continue;
+	    } else if x < y {
+		return true;
+	    }
+	}
+	false 
+    }
+
+}
 pub enum StackOp {
     PushVal(u32),
     PushVerifyingKey(VerifyingKey<Secp256k1>),
@@ -103,5 +121,56 @@ mod tests {
 
 	assert_eq!(is_valid(transaction), false);
     }
-	
+
+    #[test]
+    fn test_hash_compare_less() {
+	let hash = Hash{ bytes: vec![0; 32]};
+	let mut compare = vec![0; 32];
+	compare[5] = 1;
+	assert!(hash.is_less_than(&compare));
+    }
+
+    #[test]
+    fn test_hash_compare_less_2() {
+	let mut hash = Hash{ bytes: vec![0; 32]};
+	hash.bytes[5] = 1;
+	let mut compare = vec![0; 32];
+	compare[5] = 2;
+	assert!(hash.is_less_than(&compare));
+    }
+
+    #[test]
+    fn test_hash_compare_equal() {
+	let mut hash = Hash{ bytes: vec![2; 32]};
+	hash.bytes[5] = 1;
+	let mut compare = vec![2; 32];
+	compare[5] = 1;
+	assert!(hash.is_less_than(&compare) == false);
+    }
+    
+    #[test]
+    fn test_hash_compare_greater() {
+	let hash = Hash{ bytes: vec![2; 32]};
+	let compare = vec![1; 32];
+	assert!(hash.is_less_than(&compare) == false);
+    }
+
+    #[test]
+    fn test_hash_compare_greater_2() {
+	let mut hash = Hash{ bytes: vec![1; 32]};
+	hash.bytes[10] = 5;
+	let compare = vec![1; 32];
+	assert!(hash.is_less_than(&compare) == false);
+    }
+    
+    #[test]
+    fn test_hash_compare_greater_3() {
+	let mut hash = Hash{ bytes: vec![1; 32]};
+	hash.bytes[10] = 5;
+	hash.bytes[20] = 0;	
+	let compare = vec![1; 32];
+	assert!(hash.is_less_than(&compare) == false);
+    }
+    
+
 }

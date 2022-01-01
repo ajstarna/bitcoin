@@ -8,28 +8,47 @@ use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
 
+
+/// This notation expresses the Proof-of-Work target as a coefficient/exponent format,
+/// with the first two hexadecimal digits for the exponent and the next six hex digits as the coefficient.
+/// target = coefficient * 2^(8*(exponent–3))
+/// e.g. with bytes == 0x1903a30c:
+/// target = 0x03a30c * 2^(0x08*(0x19-0x03)) = 0x0000000000000003A30C00000000000000000000000000000000000000000000
+struct DifficultyTarget {
+    target: u32, 
+}
+
+impl DifficultyTarget {
+    /// Convert the exponent representation into a vector of bytes that represents the actual number
+    /// This can then be compared against a candidate block header hash to see if it fits the proof of work
+    pub fn to_vec(&self) -> Vec<u8> {
+	vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    }
+}
+
+
 struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
     time_stamp: u64, // 4  (8 is ok?) bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
-    difficulty_target: u32, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
+    difficulty_target: DifficultyTarget, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
     nonce: Option<u32>, // 4 bytes: A counter used for the Proof-of-Work algorithm
 }
 
 
 impl BlockHeader {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
 	hasher.update(&self.previous_block_hash.bytes[..]);
 	hasher.update(&self.merkle_root.bytes[..]);
         hasher.update(self.time_stamp.to_be_bytes());
-        hasher.update(self.difficulty_target.to_be_bytes());
+        hasher.update(self.difficulty_target.target.to_be_bytes());
 	if let Some(nonce) = self.nonce {
             hasher.update(nonce.to_be_bytes());	    
 	}
-        hasher.finalize().to_vec()
+        Hash {bytes: hasher.finalize().to_vec() }
     }
 }
 
@@ -99,12 +118,15 @@ impl BlockChain {
     /// once we have found a hash that satisfies the difficulty requirment, we return the block hash,
     /// with the appropriate nonce field set
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
+	let difficulty_vector = block_header.difficulty_target.to_vec(); // what we will compare our hashes against
+	println!("Difficulty vector = {:?}", difficulty_vector);
 	let mut nonce: u32 = 0;
 	loop {
 	    block_header.nonce = Some(nonce);
 	    let struct_hash = block_header.hash();
 	    println!("nonce = {:?}, hash = {:?}", nonce, struct_hash);
-	    if struct_hash[0] == 0 && struct_hash[1] == 0{
+	    //if struct_hash[0] == 0 && struct_hash[1] == 0 && struct_hash[2] < 16{
+	    if struct_hash.is_less_than(&difficulty_vector) {
 		// we have found a difficult enough hash value, so we are done
 		println!("Found a valid nonce for proof of work!");
 		break;
@@ -144,7 +166,7 @@ impl BlockChain {
 	    previous_block_hash: Hash{ bytes: vec![0; 32]}, 
 	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
 	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
-	    difficulty_target: 2^30, // TODO
+	    difficulty_target: DifficultyTarget{ target: 0x1903a30c },
 	    nonce: None, // this will get filled by the mining process
 	};
 	
