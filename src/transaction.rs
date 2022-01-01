@@ -20,6 +20,8 @@ impl Hash {
 		continue;
 	    } else if x < y {
 		return true;
+	    } else {
+		return false
 	    }
 	}
 	false 
