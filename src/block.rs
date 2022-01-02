@@ -2,7 +2,11 @@ use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
 use std::mem;
-    
+use ethnum::U256;
+
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt};
+
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
@@ -14,15 +18,21 @@ const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get r
 /// target = coefficient * 2^(8*(exponent–3))
 /// e.g. with bytes == 0x1903a30c:
 /// target = 0x03a30c * 2^(0x08*(0x19-0x03)) = 0x0000000000000003A30C00000000000000000000000000000000000000000000
-struct DifficultyTarget {
-    target: u32, 
-}
+/// From the bitcoin wiki:
+/// Note that this packed format contains a sign bit in the 24th bit, and for example the negation of the above target would be 0x1b8404cb in packed format.
+/// Since targets are never negative in practice, however, this means the largest legal value for the lower 24 bits is 0x7fffff.
+/// Additionally, 0x008000 is the smallest legal value for the lower 24 bits since targets are always stored with the lowest possible exponent
+struct DifficultyBits (pub u32);
 
-impl DifficultyTarget {
+impl DifficultyBits {
     /// Convert the exponent representation into a vector of bytes that represents the actual number
     /// This can then be compared against a candidate block header hash to see if it fits the proof of work
-    pub fn to_vec(&self) -> Vec<u8> {
-	vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    pub fn to_u256(&self) -> U256 {
+
+	let exponent = (self.0 >> 16) & 0xFF; // get the first byte. TODO: is the mask required?
+	let base = self.0 & 0xFFFFFF;
+	//vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]	
+	U256::from_words(0x01_05_00_00_00_00_00_00_00_00_00_00_00_00_00_00, 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00)
     }
 }
 
@@ -32,7 +42,7 @@ struct BlockHeader {
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
     time_stamp: u64, // 4  (8 is ok?) bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
-    difficulty_target: DifficultyTarget, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
+    difficulty_bits: DifficultyBits, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
     nonce: Option<u32>, // 4 bytes: A counter used for the Proof-of-Work algorithm
 }
 
@@ -41,14 +51,26 @@ impl BlockHeader {
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
-	hasher.update(&self.previous_block_hash.bytes[..]);
-	hasher.update(&self.merkle_root.bytes[..]);
+	let (hi, low) = self.previous_block_hash.into_words();
+	hasher.update(hi.to_be_bytes());
+	hasher.update(low.to_be_bytes());
+	let (hi, low) = self.merkle_root.into_words();
+	hasher.update(hi.to_be_bytes());
+	hasher.update(low.to_be_bytes());
         hasher.update(self.time_stamp.to_be_bytes());
-        hasher.update(self.difficulty_target.target.to_be_bytes());
+        hasher.update(self.difficulty_bits.0.to_be_bytes());
 	if let Some(nonce) = self.nonce {
             hasher.update(nonce.to_be_bytes());	    
 	}
-        Hash {bytes: hasher.finalize().to_vec() }
+	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
+	println!("hash_vecs = {:?}", hash_vecs);
+
+	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
+	let mut rdr = Cursor::new(hash_vecs);
+	let hi = rdr.read_u128::<BigEndian>().unwrap();
+	let low = rdr.read_u128::<BigEndian>().unwrap();
+	println!("hi = {}, low = {}", hi, low);
+        U256::from_words(hi, low)
     }
 }
 
@@ -62,7 +84,7 @@ impl TransactionList {
     }
 	
     pub fn get_merkle_root(&self) -> Hash {
-	Hash { bytes: Vec::with_capacity(32)}
+	U256::ZERO
     }
 }
 
@@ -118,17 +140,19 @@ impl BlockChain {
     /// once we have found a hash that satisfies the difficulty requirment, we return the block hash,
     /// with the appropriate nonce field set
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
-	let difficulty_vector = block_header.difficulty_target.to_vec(); // what we will compare our hashes against
-	println!("Difficulty vector = {:?}", difficulty_vector);
+	let difficulty_target = block_header.difficulty_bits.to_u256(); // what we will compare our hashes against
+	println!("Difficulty target = {:?}", difficulty_target);
+	println!("Difficulty target = {:?}", difficulty_target.to_be_bytes());	
 	let mut nonce: u32 = 0;
 	loop {
 	    block_header.nonce = Some(nonce);
 	    let struct_hash = block_header.hash();
-	    println!("nonce = {:?}, hash = {:?}", nonce, struct_hash);
-	    //if struct_hash[0] == 0 && struct_hash[1] == 0 && struct_hash[2] < 16{
-	    if struct_hash.is_less_than(&difficulty_vector) {
+	    println!("nonce = {:?}, hash = {:?}, leading_zeros = {:?}", nonce, struct_hash, struct_hash.leading_zeros());
+	    //if struct_hash.is_less_than_or_equal(&difficulty_vector) {
+	    if struct_hash <= difficulty_target {	    
 		// we have found a difficult enough hash value, so we are done
 		println!("Found a valid nonce for proof of work!");
+		println!("hash as bytes = {:?}", struct_hash.to_be_bytes());		
 		break;
 	    }
 	    nonce += 1;
@@ -163,10 +187,10 @@ impl BlockChain {
 	let transaction_list = TransactionList::new(vec![transaction]);
 	let mut block_header =  BlockHeader {
 	    version: 1, // 4 bytes: A version number to track software/protocol upgrades
-	    previous_block_hash: Hash{ bytes: vec![0; 32]}, 
+	    previous_block_hash: U256::ZERO,
 	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
 	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
-	    difficulty_target: DifficultyTarget{ target: 0x1903a30c },
+	    difficulty_bits: DifficultyBits(0x1903a30c),
 	    nonce: None, // this will get filled by the mining process
 	};
 	
@@ -191,7 +215,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_spawn_genesis() {
+    fn spawn_genesis() {
 	let mut chain = BlockChain::new();
         assert_eq!(chain.height(), 0);
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
@@ -201,4 +225,28 @@ mod tests {
         assert_eq!(chain.height(), 1);	
     }
 
+    #[test]    
+    fn target_repr_to_u256() {
+	let difficulty_bits = DifficultyBits(0x1903a30c);
+	let difficulty_target = difficulty_bits.to_u256();
+	let answer = 0; //vec![0; 32];
+	// should be: "0x00 00 00 00 00 00 00 03 A3 0C 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+	assert_eq!(difficulty_target, answer);
+    }
+    
+    #[test]    
+    fn target_repr_to_u256_2() {
+	// test the largest possible difficulty
+	let difficulty_bits = DifficultyBits(0xFF7FFFFF);
+	let difficulty_target = difficulty_bits.to_u256();
+	let answer = 12345; // vec![0; 32];
+	// should be: "
+	assert_eq!(difficulty_target, answer);
+    }
+
+    #[test]
+    fn whats_up() {
+	let a: U256 = U256::from_words(0, 10000);
+	
+    }
 }

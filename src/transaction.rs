@@ -2,19 +2,22 @@
 
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
+use ethnum::U256;
 
-#[derive(Debug)]
-pub struct Hash {
-    pub bytes: Vec<u8>,
-}
 
+//#[derive(Debug)]
+//pub struct Hash(pub  U256);
+pub type Hash = U256;
+
+
+/*
 impl Hash {
     /// given a Vec of bytes,, this method says if the hash one is less than
     /// the given Vec, when interpreted as one long integer value.
     /// we iterate over the bytes from most to least significant, and as soon as there
     /// is a discrepancy, we know the answer, and we can return.
-    /// If we make it to the end of the vectors, then the vectors were exactly equal - hence we return false
-    pub fn is_less_than(&self, compare: & Vec<u8>) -> bool {
+    /// If we make it to the end of the vectors, then the vectors were exactly equal - hence we return true
+    pub fn is_less_than_or_equal(&self, compare: & Vec<u8>) -> bool {
 	for (x, y) in self.bytes.iter().zip(compare) {
 	    if x == y {
 		continue;
@@ -24,10 +27,11 @@ impl Hash {
 		return false
 	    }
 	}
-	false 
+	true
     }
 
-}
+}*/
+
 pub enum StackOp {
     PushVal(u32),
     PushVerifyingKey(VerifyingKey<Secp256k1>),
@@ -123,38 +127,38 @@ mod tests {
 
 	assert_eq!(is_valid(transaction), false);
     }
-
+    /*
     #[test]
-    fn test_hash_compare_less() {
+    fn hash_compare_less() {
 	let hash = Hash{ bytes: vec![0; 32]};
 	let mut compare = vec![0; 32];
 	compare[5] = 1;
-	assert!(hash.is_less_than(&compare));
+	assert!(hash.is_less_than_or_equal(&compare));
     }
 
     #[test]
-    fn test_hash_compare_less_2() {
+    fn hash_compare_less_2() {
 	let mut hash = Hash{ bytes: vec![0; 32]};
 	hash.bytes[5] = 1;
 	let mut compare = vec![0; 32];
 	compare[5] = 2;
-	assert!(hash.is_less_than(&compare));
+	assert!(hash.is_less_than_or_equal(&compare));
     }
 
     #[test]
-    fn test_hash_compare_equal() {
+    fn hash_compare_equal() {
 	let mut hash = Hash{ bytes: vec![2; 32]};
 	hash.bytes[5] = 1;
 	let mut compare = vec![2; 32];
 	compare[5] = 1;
-	assert!(hash.is_less_than(&compare) == false);
+	assert!(hash.is_less_than_or_equal(&compare));
     }
     
     #[test]
-    fn test_hash_compare_greater() {
+    fn hash_compare_greater() {
 	let hash = Hash{ bytes: vec![2; 32]};
 	let compare = vec![1; 32];
-	assert!(hash.is_less_than(&compare) == false);
+	assert!(hash.is_less_than_or_equal(&compare) == false);
     }
 
     #[test]
@@ -162,7 +166,7 @@ mod tests {
 	let mut hash = Hash{ bytes: vec![1; 32]};
 	hash.bytes[10] = 5;
 	let compare = vec![1; 32];
-	assert!(hash.is_less_than(&compare) == false);
+	assert!(hash.is_less_than_or_equal(&compare) == false);
     }
     
     #[test]
@@ -171,8 +175,7 @@ mod tests {
 	hash.bytes[10] = 5;
 	hash.bytes[20] = 0;	
 	let compare = vec![1; 32];
-	assert!(hash.is_less_than(&compare) == false);
+	assert!(hash.is_less_than_or_equal(&compare) == false);
     }
-    
-
+    */
 }
