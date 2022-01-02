@@ -11,7 +11,7 @@ use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
-
+const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // TODO: this is the "real" one --> 0x1d00ffff
 
 /// This notation expresses the Proof-of-Work target as a coefficient/exponent format,
 /// with the first two hexadecimal digits for the exponent and the next six hex digits as the coefficient.
@@ -29,10 +29,27 @@ impl DifficultyBits {
     /// This can then be compared against a candidate block header hash to see if it fits the proof of work
     pub fn to_u256(&self) -> U256 {
 
-	let exponent = (self.0 >> 16) & 0xFF; // get the first byte. TODO: is the mask required?
-	let base = self.0 & 0xFFFFFF;
-	//vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]	
-	U256::from_words(0x01_05_00_00_00_00_00_00_00_00_00_00_00_00_00_00, 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00)
+	let exponent: u32 = ((self.0 >> 24) & 0xFF ).into(); // get the first byte. TODO: is the mask required?
+	let base: u128 = (self.0 & 0xFFFFFF).into(); // next three bytes represent the base
+	//vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	// convert to the special U256 type before doing the math
+
+	println!("hello");
+	println!("exponent = {:?}", exponent);
+	println!("base = {:?}", base);	
+	
+	let base = U256::from_words(0, base);
+
+	println!("============");
+	let full_exponent: u32 = 8 * (exponent -  3);
+	println!("full_exponent = {:?}", full_exponent);
+	assert!(full_exponent < 255); // we can't be too big
+	// TODO: the checked_pow() meethod didn't seem to return None when there was overflow hmmm
+	let rhs = U256::from_words(0, 2).pow(full_exponent);
+	println!("rhs = {:?}", rhs);	
+	let difficulty_target = base * rhs;
+	difficulty_target
+	// U256::from_words(0x01_05_00_00_00_00_00_00_00_00_00_00_00_00_00_00, 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00)
     }
 }
 
@@ -69,7 +86,6 @@ impl BlockHeader {
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
 	let low = rdr.read_u128::<BigEndian>().unwrap();
-	println!("hi = {}, low = {}", hi, low);
         U256::from_words(hi, low)
     }
 }
@@ -141,8 +157,6 @@ impl BlockChain {
     /// with the appropriate nonce field set
     fn mine_block(&self, block_header:  &mut BlockHeader)  {
 	let difficulty_target = block_header.difficulty_bits.to_u256(); // what we will compare our hashes against
-	println!("Difficulty target = {:?}", difficulty_target);
-	println!("Difficulty target = {:?}", difficulty_target.to_be_bytes());	
 	let mut nonce: u32 = 0;
 	loop {
 	    block_header.nonce = Some(nonce);
@@ -157,6 +171,9 @@ impl BlockChain {
 	    }
 	    nonce += 1;
 	}
+	println!("Difficulty target = {:?}", difficulty_target);
+	println!("Difficulty target = {:?}", difficulty_target.to_be_bytes());	
+	
     }
 
 
@@ -190,7 +207,7 @@ impl BlockChain {
 	    previous_block_hash: U256::ZERO,
 	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
 	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
-	    difficulty_bits: DifficultyBits(0x1903a30c),
+	    difficulty_bits: STARTING_DIFFICULTY_BITS,
 	    nonce: None, // this will get filled by the mining process
 	};
 	
@@ -213,7 +230,6 @@ use std::time::{SystemTime};
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-
     #[test]
     fn spawn_genesis() {
 	let mut chain = BlockChain::new();
@@ -229,24 +245,10 @@ mod tests {
     fn target_repr_to_u256() {
 	let difficulty_bits = DifficultyBits(0x1903a30c);
 	let difficulty_target = difficulty_bits.to_u256();
-	let answer = 0; //vec![0; 32];
-	// should be: "0x00 00 00 00 00 00 00 03 A3 0C 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-	assert_eq!(difficulty_target, answer);
-    }
-    
-    #[test]    
-    fn target_repr_to_u256_2() {
-	// test the largest possible difficulty
-	let difficulty_bits = DifficultyBits(0xFF7FFFFF);
-	let difficulty_target = difficulty_bits.to_u256();
-	let answer = 12345; // vec![0; 32];
-	// should be: "
+	let answer_hi: u128 = 0x00_00_00_00_00_00_00_03_A3_0C_00_00_00_00_00_00;
+	let answer_low: u128 = 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
+	let answer = U256::from_words(answer_hi, answer_low);
 	assert_eq!(difficulty_target, answer);
     }
 
-    #[test]
-    fn whats_up() {
-	let a: U256 = U256::from_words(0, 10000);
-	
-    }
 }
