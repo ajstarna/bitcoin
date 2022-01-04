@@ -24,13 +24,3 @@ impl UTXODataBase {
     }
 }
 
-
-fn main() {
-    /*
-    let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
-    let TEST_PRIVATE_KEY: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
-    let TEST_PUBLIC_KEY: VerifyingKey<Secp256k1> = TEST_PRIVATE_KEY.verifying_key();    
-    println!("private = {:?}", TEST_PRIVATE_KEY);
-    println!("public = {:?}", TEST_PUBLIC_KEY);
-     */
-}

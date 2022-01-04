@@ -9,29 +9,7 @@ use ethnum::U256;
 //pub struct Hash(pub  U256);
 pub type Hash = U256;
 
-
-/*
-impl Hash {
-    /// given a Vec of bytes,, this method says if the hash one is less than
-    /// the given Vec, when interpreted as one long integer value.
-    /// we iterate over the bytes from most to least significant, and as soon as there
-    /// is a discrepancy, we know the answer, and we can return.
-    /// If we make it to the end of the vectors, then the vectors were exactly equal - hence we return true
-    pub fn is_less_than_or_equal(&self, compare: & Vec<u8>) -> bool {
-	for (x, y) in self.bytes.iter().zip(compare) {
-	    if x == y {
-		continue;
-	    } else if x < y {
-		return true;
-	    } else {
-		return false
-	    }
-	}
-	true
-    }
-
-}*/
-
+#[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
     PushVerifyingKey(VerifyingKey<Secp256k1>),
@@ -49,10 +27,12 @@ pub enum StackOp {
 /// the requirment for ownership of the utxo
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
+#[derive(Debug)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
 
+#[derive(Debug)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
@@ -68,12 +48,13 @@ pub enum TxIn {
     }
 }
 
-
+#[derive(Debug)]
 pub struct TxOut {
     pub value: u32, // number of Eves 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
+#[derive(Debug)]
 pub struct Transaction {
     pub version: u32,
     pub lock_time: u32,
@@ -127,55 +108,4 @@ mod tests {
 
 	assert_eq!(is_valid(transaction), false);
     }
-    /*
-    #[test]
-    fn hash_compare_less() {
-	let hash = Hash{ bytes: vec![0; 32]};
-	let mut compare = vec![0; 32];
-	compare[5] = 1;
-	assert!(hash.is_less_than_or_equal(&compare));
-    }
-
-    #[test]
-    fn hash_compare_less_2() {
-	let mut hash = Hash{ bytes: vec![0; 32]};
-	hash.bytes[5] = 1;
-	let mut compare = vec![0; 32];
-	compare[5] = 2;
-	assert!(hash.is_less_than_or_equal(&compare));
-    }
-
-    #[test]
-    fn hash_compare_equal() {
-	let mut hash = Hash{ bytes: vec![2; 32]};
-	hash.bytes[5] = 1;
-	let mut compare = vec![2; 32];
-	compare[5] = 1;
-	assert!(hash.is_less_than_or_equal(&compare));
-    }
-    
-    #[test]
-    fn hash_compare_greater() {
-	let hash = Hash{ bytes: vec![2; 32]};
-	let compare = vec![1; 32];
-	assert!(hash.is_less_than_or_equal(&compare) == false);
-    }
-
-    #[test]
-    fn test_hash_compare_greater_2() {
-	let mut hash = Hash{ bytes: vec![1; 32]};
-	hash.bytes[10] = 5;
-	let compare = vec![1; 32];
-	assert!(hash.is_less_than_or_equal(&compare) == false);
-    }
-    
-    #[test]
-    fn test_hash_compare_greater_3() {
-	let mut hash = Hash{ bytes: vec![1; 32]};
-	hash.bytes[10] = 5;
-	hash.bytes[20] = 0;	
-	let compare = vec![1; 32];
-	assert!(hash.is_less_than_or_equal(&compare) == false);
-    }
-    */
 }
