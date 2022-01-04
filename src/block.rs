@@ -90,7 +90,7 @@ impl BlockHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, IntoIter)]
 struct TransactionList {
     transactions: Vec<Transaction>,    
 }
@@ -145,7 +145,8 @@ impl Block {
 
 }
 
-struct BlockChain {
+#[derive(Debug, IntoIter)]
+pub struct BlockChain {
     blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,
 }
@@ -153,7 +154,7 @@ struct BlockChain {
 
 impl BlockChain {
 
-    fn new() -> Self {
+    pub fn new() -> Self {
 	Self {
 	    blocks: Vec::new(),
 	    difficulty_bits: STARTING_DIFFICULTY_BITS, //TODO: change over time
@@ -201,7 +202,7 @@ impl BlockChain {
 
     /// given a new block, add it to the blockchain
     /// TODO: we should validate the block here or no?
-    fn add_block(&mut self, block: Block) {
+    pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
     }
 
@@ -263,7 +264,7 @@ impl BlockChain {
 	}
     }
     
-    fn construct_candidate_block(&self, recipient: VerifyingKey<Secp256k1>) -> Block {
+    pub fn construct_candidate_block(&self, recipient: VerifyingKey<Secp256k1>) -> Block {
 	let transaction_list = self.construct_transaction_list(recipient);
 	let previous_block_hash = self.get_previous_block_hash();
 	let block_header =  BlockHeader {
@@ -299,18 +300,6 @@ impl BlockChain {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    /*
-    #[test]
-    fn spawn_genesis() {
-	let mut chain = BlockChain::new();
-        assert_eq!(chain.height(), 0);
-	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
-	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
-	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    
-	chain.run(public_key, 1);
-        assert_eq!(chain.height(), 1);
-    }
-     */
     #[test]    
     fn target_repr_to_u256() {
 	let difficulty_bits = DifficultyBits(0x1903a30c);
@@ -322,9 +311,9 @@ mod tests {
     }
 
     #[test]
-    fn run_5_blocks() {
+    fn run_3_blocks() {
 	let mut chain = BlockChain::new();
-	let num_blocks = 5;
+	let num_blocks = 3;
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	

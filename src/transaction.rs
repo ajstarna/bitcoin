@@ -1,4 +1,3 @@
-//use super::validation::{LockingScript, UnlockingScript, is_valid};
 
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
@@ -62,6 +61,12 @@ pub struct Transaction {
     pub tx_outs: Vec<TxOut>,    
 }
 
+impl Transaction {
+    fn hash(&self) -> Hash {
+        let mut hasher = Sha256::new();
+        hasher.update(self.version.to_be_bytes());
+	todo!();
+}
 
 pub fn is_valid(transaction: Transaction) -> bool {
     for tx_in in &transaction.tx_ins {
