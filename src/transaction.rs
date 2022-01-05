@@ -1,11 +1,10 @@
-
 use ecdsa::{SigningKey, VerifyingKey};
+use sha2::{Sha256, Digest};
 use k256::{Secp256k1};
 use ethnum::U256;
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt};
 
-
-//#[derive(Debug)]
-//pub struct Hash(pub  U256);
 pub type Hash = U256;
 
 #[derive(Debug)]
@@ -62,10 +61,45 @@ pub struct Transaction {
 }
 
 impl Transaction {
+
+    /// hash all the bytes of the transaction
+    /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
-	todo!();
+        hasher.update(self.lock_time.to_be_bytes());
+	for tx_in in &self.tx_ins {
+	    match tx_in {
+		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
+		    let (hi, low) = tx_hash.into_words();
+		    hasher.update(hi.to_be_bytes());
+		    hasher.update(low.to_be_bytes());
+		    hasher.update(tx_out_index.to_be_bytes());		    
+		    for op in &unlocking_script.ops {
+			hasher.update(op.to_be_bytes());
+		    }
+		    hasher.update(sequence.to_be_bytes());		    		    
+		},
+		TxIn::Coinbase{coinbase, sequence} => {
+		    hasher.update(coinbase.to_be_bytes());
+		    hasher.update(sequence.to_be_bytes());
+		}
+	    }
+	}
+	for tx_out in &self.tx_outs {
+	    hasher.update(tx_out.value.to_be_bytes());
+	    for op in &tx_out.locking_script.ops {
+		hasher.update(op.to_be_bytes());
+	    }
+	}
+	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
+	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
+	let mut rdr = Cursor::new(hash_vecs);
+	let hi = rdr.read_u128::<BigEndian>().unwrap();
+	let low = rdr.read_u128::<BigEndian>().unwrap();
+        U256::from_words(hi, low)
+    }
+
 }
 
 pub fn is_valid(transaction: Transaction) -> bool {

@@ -23,9 +23,10 @@ impl UTXODataBase {
 
     /// given a blockchain, we reads blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
-    fn read_blocks(&self, blockchain: BlockChain) {
-	for block in blockchain.iter().skip(self.num_blocks_analyzed) {
-	    for transaction in block.transaction_list {
+    fn read_blocks(&mut self, blockchain: BlockChain) {
+	// TODO: impl iterator for blockchain struct itself?
+	for block in blockchain.blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
+	    for transaction in block.transaction_list.transactions {
 		println!("transaction = {:?}", transaction);
 	    }
 	    self.num_blocks_analyzed += 1;
@@ -55,11 +56,12 @@ mod tests {
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
 	// add some aribtrary blocks to the chain (don't bother mining them)
 	for _ in 0..num_blocks {
-	    let mut block = chain.construct_candidate_block(public_key);
+	    let block = chain.construct_candidate_block(public_key);
 	    println!("about to add block: {:?}", block);
 	    chain.add_block(block);
 	}
 
-	let utxo_database = UTXODataBase::new();
+	let mut utxo_database = UTXODataBase::new();
 	utxo_database.read_blocks(chain);
     }
+}

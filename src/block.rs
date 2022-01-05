@@ -54,7 +54,7 @@ impl DifficultyBits {
 }
 
 #[derive(Debug)]
-struct BlockHeader {
+pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
@@ -80,8 +80,6 @@ impl BlockHeader {
             hasher.update(nonce.to_be_bytes());	    
 	}
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
-	//println!("hash_vecs = {:?}", hash_vecs);
-
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
@@ -90,9 +88,9 @@ impl BlockHeader {
     }
 }
 
-#[derive(Debug, IntoIter)]
-struct TransactionList {
-    transactions: Vec<Transaction>,    
+#[derive(Debug)]
+pub struct TransactionList {
+    pub transactions: Vec<Transaction>,    
 }
 
 impl TransactionList {
@@ -110,11 +108,11 @@ impl TransactionList {
 }
 
 #[derive(Debug)]
-struct Block {
-    block_size: u32,
-    block_header: BlockHeader,
-    transaction_count: u32,
-    transaction_list: TransactionList,
+pub struct Block {
+    pub block_size: u32,
+    pub block_header: BlockHeader,
+    pub transaction_count: u32,
+    pub transaction_list: TransactionList,
 }
 
 
@@ -145,9 +143,9 @@ impl Block {
 
 }
 
-#[derive(Debug, IntoIter)]
+#[derive(Debug)]
 pub struct BlockChain {
-    blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
+    pub blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,
 }
 
