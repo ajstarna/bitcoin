@@ -64,10 +64,15 @@ impl Transaction {
 
     /// hash all the bytes of the transaction
     /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
+    /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
         hasher.update(self.lock_time.to_be_bytes());
+
+
+	todo: can we just use serde or whatever on the structs then hash that??
+	
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
