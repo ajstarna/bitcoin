@@ -1,12 +1,12 @@
-use ecdsa::{SigningKey, VerifyingKey};
+//use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
-use std::mem;
 use std::time::{SystemTime};
 use ethnum::U256;
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
+use serde::{Serialize, Deserialize};
 
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
@@ -53,7 +53,8 @@ impl DifficultyBits {
     }
 }
 
-#[derive(Debug)]
+//#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain

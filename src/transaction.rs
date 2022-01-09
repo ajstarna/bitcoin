@@ -71,7 +71,7 @@ impl Transaction {
         hasher.update(self.lock_time.to_be_bytes());
 
 
-	todo: can we just use serde or whatever on the structs then hash that??
+	// todo: can we just use serde or whatever on the structs then hash that??
 	
 	for tx_in in &self.tx_ins {
 	    match tx_in {
@@ -79,10 +79,11 @@ impl Transaction {
 		    let (hi, low) = tx_hash.into_words();
 		    hasher.update(hi.to_be_bytes());
 		    hasher.update(low.to_be_bytes());
-		    hasher.update(tx_out_index.to_be_bytes());		    
+		    hasher.update(tx_out_index.to_be_bytes());
+		    /*
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
-		    }
+		    } */
 		    hasher.update(sequence.to_be_bytes());		    		    
 		},
 		TxIn::Coinbase{coinbase, sequence} => {
@@ -93,9 +94,10 @@ impl Transaction {
 	}
 	for tx_out in &self.tx_outs {
 	    hasher.update(tx_out.value.to_be_bytes());
+	    /*
 	    for op in &tx_out.locking_script.ops {
 		hasher.update(op.to_be_bytes());
-	    }
+	    } */
 	}
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256

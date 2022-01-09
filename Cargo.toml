@@ -1,4 +1,3 @@
-cargo-features = ["edition2021"] # some of the cryptography crates need this
 [package]
 name = "abam_coin"
 version = "0.1.0"
@@ -13,3 +12,4 @@ ecdsa = "0.13.3"
 k256 = "0.10.0"
 ethnum = "1.0.4"
 byteorder = "1.4.3"
+serde = { version = "1.0", features = ["derive"] }
