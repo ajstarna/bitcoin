@@ -1,4 +1,4 @@
-//use ecdsa::{SigningKey, VerifyingKey};
+use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
 use std::time::{SystemTime};
@@ -188,7 +188,7 @@ impl BlockChain {
 	let reward = self.determine_coinbase_reward();
 	let tx_out = TxOut {
 	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
-	    locking_script: Script {ops: vec![StackOp::PushVerifyingKey(recipient)]},
+	    locking_script: Script {ops: vec![StackOp::PushKey(recipient.to_encoded_point(true))]},
 	};
 	Transaction {
 	    version: 1,

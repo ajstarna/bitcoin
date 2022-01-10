@@ -2,16 +2,22 @@ use ecdsa::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
 use k256::{Secp256k1};
 use ethnum::U256;
+use elliptic_curve::sec1::{EncodedPoint};
+
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
+use serde::{Serialize, Deserialize};
+use bincode;
 
 pub type Hash = U256;
 
+//#[derive(Serialize, Deserialize, Debug)]
 #[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
-    PushVerifyingKey(VerifyingKey<Secp256k1>),
-    PushSigningKey(SigningKey<Secp256k1>),	
+    PushKey(EncodedPoint<Secp256k1>),
+    //PushVerifyingKey(VerifyingKey<Secp256k1>),
+    //PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
     OpDup,
     //OP_HASH_160,
@@ -19,6 +25,14 @@ pub enum StackOp {
     OpChecksig,
     //OP_VERIFY,
     //OP_EQ_VERIFY,
+}
+
+impl StackOp {
+    fn to_be_bytes(&self) -> Vec<u8> {
+	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+	//encoded
+	match_
+    }
 }
 
 /// The unlocking script when combined with a locking script and executed on the stack satisfies
