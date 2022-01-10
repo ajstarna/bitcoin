@@ -68,11 +68,14 @@ pub struct BlockHeader {
 impl BlockHeader {
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
+	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+        hasher.update(encoded);	
+	/*
         hasher.update(self.version.to_be_bytes());
-	let (hi, low) = self.previous_block_hash.into_words();
+	let (hi, low) = self.previous_block_hash.0.into_words();
 	hasher.update(hi.to_be_bytes());
 	hasher.update(low.to_be_bytes());
-	let (hi, low) = self.merkle_root.into_words();
+	let (hi, low) = self.merkle_root.0.into_words();
 	hasher.update(hi.to_be_bytes());
 	hasher.update(low.to_be_bytes());
         hasher.update(self.time_stamp.to_be_bytes());
@@ -80,12 +83,13 @@ impl BlockHeader {
 	if let Some(nonce) = self.nonce {
             hasher.update(nonce.to_be_bytes());	    
 	}
+	 */
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
 	let low = rdr.read_u128::<BigEndian>().unwrap();
-        U256::from_words(hi, low)
+        Hash(U256::from_words(hi, low))
     }
 }
 
@@ -100,7 +104,7 @@ impl TransactionList {
     }
 	
     pub fn get_merkle_root(&self) -> Hash {
-	U256::ZERO
+	Hash(U256::ZERO)
     }
 
     pub fn len(&self) -> u32 {
@@ -126,7 +130,7 @@ impl Block {
 	let mut nonce: u32 = 0;
 	loop {
 	    self.block_header.nonce = Some(nonce);
-	    let struct_hash = self.block_header.hash();
+	    let struct_hash = self.block_header.hash().0;
 	    //println!("nonce = {:?}, hash = {:?}, leading_zeros = {:?}", nonce, struct_hash, struct_hash.leading_zeros());
 	    //if struct_hash.is_less_than_or_equal(&difficulty_vector) {
 	    if struct_hash <= difficulty_target {	    
@@ -188,7 +192,7 @@ impl BlockChain {
 	let reward = self.determine_coinbase_reward();
 	let tx_out = TxOut {
 	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
-	    locking_script: Script {ops: vec![StackOp::PushKey(recipient.to_encoded_point(true))]},
+	    locking_script: Script {ops: vec![StackOp::OpDup]},     //PushKey(recipient.to_encoded_point(true))]},
 	};
 	Transaction {
 	    version: 1,
@@ -254,9 +258,9 @@ impl BlockChain {
 
     /// get the hash of the block header of the previous block in the chain
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
-    fn get_previous_block_hash(&self) -> U256 {
+    fn get_previous_block_hash(&self) -> Hash {
 	if self.is_empty() {
-	    U256::ZERO
+	    Hash(U256::ZERO)
 	} else {
 	    let previous_block = self.blocks.last().unwrap();
 	    previous_block.block_header.hash()
