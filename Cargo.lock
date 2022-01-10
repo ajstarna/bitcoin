@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "ecdsa",
+ "elliptic-curve",
  "ethnum",
  "k256",
  "sha2 0.10.0",
