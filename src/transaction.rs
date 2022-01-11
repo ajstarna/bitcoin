@@ -13,31 +13,11 @@ use bincode;
 #[derive(Debug)]
 pub struct Hash (pub U256); // new struct so that we can impl serialize
 
-/*
-impl Serialize for Hash {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(32))?;
-	let (hi, low) = self.0.into_words();	
-        for e in &hi.to_be_bytes() {
-            seq.serialize_element(e)?;
-        }
-        for e in &low.to_be_bytes() {
-            seq.serialize_element(e)?;
-        }
-        seq.end()
-    }
-}
-
-*/
-
 #[derive(Serialize, Deserialize, Debug)]
 //#[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
-    PushKey(Box<[u8]>), // EncodedPoint<Secp256k1>),
+    PushKey(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
     //PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
