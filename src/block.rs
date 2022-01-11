@@ -93,7 +93,6 @@ impl BlockHeader {
 	if let Some(nonce) = self.nonce {
             hasher.update(nonce.to_be_bytes());	    
 	}
-	 */
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);

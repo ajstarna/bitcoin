@@ -33,11 +33,11 @@ impl Serialize for Hash {
 
 */
 
-//#[derive(Serialize, Deserialize, Debug)]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+//#[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
-    PushKey(&[u8]), // EncodedPoint<Secp256k1>),
+    PushKey(Box<[u8]>), // EncodedPoint<Secp256k1>),
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
     //PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
@@ -52,22 +52,23 @@ pub enum StackOp {
 
 impl StackOp {
     fn to_be_bytes(&self) -> Vec<u8> {
-	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-	//encoded
+	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+	encoded
     }
+}
 
 /// The unlocking script when combined with a locking script and executed on the stack satisfies
 /// the requirment for ownership of the utxo
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
-//#[derive(Debug)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
 
-//#[derive(Debug)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
@@ -83,15 +84,15 @@ pub enum TxIn {
     }
 }
 
-//#[derive(Debug)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub struct TxOut {
     pub value: u32, // number of Eves 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
-//#[derive(Debug)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub version: u32,
     pub lock_time: u32,
@@ -117,7 +118,7 @@ impl Transaction {
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
-		    let (hi, low) = tx_hash.into_words();
+		    let (hi, low) = tx_hash.0.into_words();
 		    hasher.update(hi.to_be_bytes());
 		    hasher.update(low.to_be_bytes());
 		    hasher.update(tx_out_index.to_be_bytes());
