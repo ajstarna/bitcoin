@@ -6,7 +6,6 @@ use ethnum::U256;
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Serialize, Serializer, Deserialize};
 
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
@@ -23,8 +22,7 @@ const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // 
 /// Note that this packed format contains a sign bit in the 24th bit, and for example the negation of the above target would be 0x1b8404cb in packed format.
 /// Since targets are never negative in practice, however, this means the largest legal value for the lower 24 bits is 0x7fffff.
 /// Additionally, 0x008000 is the smallest legal value for the lower 24 bits since targets are always stored with the lowest possible exponent
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-//#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 struct DifficultyBits (pub u32);
 
 impl DifficultyBits {
@@ -54,18 +52,7 @@ impl DifficultyBits {
     }
 }
 
-/*
-impl Serialize for DifficultyBits {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_u32(self.0)
-    }
-}*/
-
 #[derive(Debug)]
-//#[derive(Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
@@ -79,8 +66,6 @@ pub struct BlockHeader {
 impl BlockHeader {
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-        //hasher.update(encoded);	
         hasher.update(self.version.to_be_bytes());
 	let (hi, low) = self.previous_block_hash.0.into_words();
 	hasher.update(hi.to_be_bytes());
@@ -217,37 +202,6 @@ impl BlockChain {
     pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
     }
-
-
-    /*
-    /// The first block in a blockchain, aka the "genesis block" needs to be created in a special way,
-    /// since there is no previous block in this case
-    /// recipient is the public/verifying key of the person who will receive the coinbase for this block
-    fn spawn_genesis_block(&mut self, recipient: VerifyingKey<Secp256k1>) {
-	assert!(self.is_empty()); // We can only spawn a genesis block when the blockchain is empty
-	// let now = SystemTime::now();
-	let transaction = self.construct_coinbase_transaction(recipient);
-	let transaction_list = TransactionList::new(vec![transaction]);
-	let block_header =  BlockHeader {
-	    version: 1, // 4 bytes: A version number to track software/protocol upgrades
-	    previous_block_hash: U256::ZERO,
-	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
-	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
-	    difficulty_bits: STARTING_DIFFICULTY_BITS,
-	    nonce: None, // this will get filled by the mining process
-	};
-	
-	let mut genesis_block =  Block {
-	    block_size: 100, // TODO: how is this measured?
-	    block_header: block_header,
-	    transaction_count: 1,
-	    transaction_list: transaction_list,
-	};
-
-	genesis_block.mine();
-	println!("after mining: {:?}", genesis_block);	
-	self.add_block(genesis_block);	
-    }*/
 
     /// given the recipient of the coinbase transaction, we construct and return a list of transactions to include in the
     /// next candidate block.

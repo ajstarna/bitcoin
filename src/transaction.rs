@@ -9,12 +9,13 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Serialize, Serializer, Deserialize, ser::SerializeSeq};
 use bincode;
 
-//pub type Hash = U256;
 #[derive(Debug)]
 pub struct Hash (pub U256); // new struct so that we can impl serialize
 
+/// enum to hold the various Scrypt operations and their associated values
+/// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
+/// (I couldn't find a more direct way to do that like everything else, but there might be)
 #[derive(Serialize, Deserialize, Debug)]
-//#[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
     PushKey(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
@@ -48,7 +49,6 @@ pub struct Script {
 }
 
 #[derive(Debug)]
-//#[derive(Serialize, Deserialize, Debug)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
@@ -65,14 +65,12 @@ pub enum TxIn {
 }
 
 #[derive(Debug)]
-//#[derive(Serialize, Deserialize, Debug)]
 pub struct TxOut {
     pub value: u32, // number of Eves 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
 #[derive(Debug)]
-//#[derive(Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub version: u32,
     pub lock_time: u32,
@@ -87,13 +85,8 @@ impl Transaction {
     /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-        //hasher.update(encoded);
-	
         hasher.update(self.version.to_be_bytes());
         hasher.update(self.lock_time.to_be_bytes());
-
-	// todo: can we just use serde or whatever on the structs then hash that??
 	
 	for tx_in in &self.tx_ins {
 	    match tx_in {
@@ -142,7 +135,6 @@ pub fn is_valid(transaction: Transaction) -> bool {
 }
 
 
-
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -157,22 +149,5 @@ mod tests {
 	if let TxIn::Coinbase {coinbase, sequence} = tx_in {
             assert_eq!(33, coinbase);
 	}
-    }
-
-    #[test]
-    fn test_invalid_block() {
-	let tx_in = TxIn::Coinbase {
-	    coinbase: 33,
-	    sequence: 5580,
-	};
-	let tx_out = TxOut { value: 2, locking_script: Script {ops: vec![StackOp::OpDup]} };
-	let transaction = Transaction {
-	    version: 1,
-	    lock_time: 100,
-	    tx_ins: vec![tx_in],
-	    tx_outs: vec![tx_out],	    
-	};
-
-	assert_eq!(is_valid(transaction), false);
     }
 }
