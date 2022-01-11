@@ -1,22 +1,30 @@
 use ecdsa::{SigningKey, VerifyingKey};
-use elliptic_curve::sec1::{EncodedPoint};
 use sha2::{Sha256, Digest};
 use k256::{Secp256k1};
 use ethnum::U256;
+use elliptic_curve::sec1::{EncodedPoint};
+
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
+use serde::{Serialize, Serializer, Deserialize, ser::SerializeSeq};
 use bincode;
 
-use std::mem;
+/*
+#[derive(Debug)]
+pub struct Hash (pub U256); // new struct so that we can impl serialize
+ */
 
 pub type Hash = U256;
 
-#[derive(Debug)]
+/// enum to hold the various Scrypt operations and their associated values
+/// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
+/// (I couldn't find a more direct way to do that like everything else, but there might be)
+#[derive(Serialize, Deserialize, Debug)]
 pub enum StackOp {
     PushVal(u32),
-    PushKey(Box<[u8]>), //EncodedPoint<Secp256k1>),
+    PushKey(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
-    //PushSigningKey(SigningKey<Secp256k1>), 
+    //PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
     OpDup,
     //OP_HASH_160,
@@ -26,24 +34,12 @@ pub enum StackOp {
     //OP_EQ_VERIFY,
 }
 
+
 impl StackOp {
-
-    /*
-    fn to_be_bytes(&self) -> Vec<u8> {
-	match self {
-	    StackOp::PushVal(val) => vec![mem::discriminant(val) as u8],
-	    StackOp::PushKey(encoded_point) => vec![1],
-	    StackOp::OpDup => vec![1],
-	    StackOp::OpEqual => vec![1],
-	    StackOp::OpChecksig => vec![1],    
-	}
-    }*/
-
     fn to_be_bytes(&self) -> Vec<u8> {
 	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
 	encoded
     }
-
 }
 
 /// The unlocking script when combined with a locking script and executed on the stack satisfies
@@ -51,6 +47,7 @@ impl StackOp {
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
 #[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
@@ -89,17 +86,19 @@ impl Transaction {
 
     /// hash all the bytes of the transaction
     /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
+    /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
         hasher.update(self.lock_time.to_be_bytes());
+	
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
 		    let (hi, low) = tx_hash.into_words();
 		    hasher.update(hi.to_be_bytes());
 		    hasher.update(low.to_be_bytes());
-		    hasher.update(tx_out_index.to_be_bytes());		    
+		    hasher.update(tx_out_index.to_be_bytes());
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
 		    }
@@ -115,8 +114,9 @@ impl Transaction {
 	    hasher.update(tx_out.value.to_be_bytes());
 	    for op in &tx_out.locking_script.ops {
 		hasher.update(op.to_be_bytes());
-	    }
+	    } 
 	}
+
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);
@@ -139,7 +139,6 @@ pub fn is_valid(transaction: Transaction) -> bool {
 }
 
 
-
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -157,19 +156,31 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_block() {
+    fn test_hash_transaction() {
 	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
 	    sequence: 5580,
 	};
-	let tx_out = TxOut { value: 2, locking_script: Script {ops: vec![StackOp::OpDup]} };
+	let tx_out1 = TxOut {
+	    value: 222,
+	    locking_script: Script {ops: vec![StackOp::OpDup]},	    
+	};
+	let tx_out2 = TxOut {
+	    value: 333,
+	    locking_script: Script {ops: vec![StackOp::OpEqual]},	    	    
+	};
 	let transaction = Transaction {
 	    version: 1,
-	    lock_time: 100,
+	    lock_time: 5,
 	    tx_ins: vec![tx_in],
-	    tx_outs: vec![tx_out],	    
+	    tx_outs: vec![tx_out1, tx_out2],		
 	};
 
-	assert_eq!(is_valid(transaction), false);
+	// note: this is simply the hash that comes out when i presently run it.
+	// This will at least show if something changes unexpectedly in the future
+	// 9867146778677399561412053178184496996625184432557161352426664471158288654564 decimal
+	// 15D09B6F36496CB1D7693954A23078B60AAD40F539D3503C52A314892AB1A0E4 hex
+	let hash = transaction.hash();
+	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }
 }
