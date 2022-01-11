@@ -1,7 +1,6 @@
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
-use std::mem;
 use std::time::{SystemTime};
 use ethnum::U256;
 
@@ -187,7 +186,7 @@ impl BlockChain {
 	let reward = self.determine_coinbase_reward();
 	let tx_out = TxOut {
 	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
-	    locking_script: Script {ops: vec![StackOp::PushVerifyingKey(recipient)]},
+	    locking_script: Script {ops: vec![StackOp::PushKey(recipient.to_encoded_point(true).to_bytes())]},
 	};
 	Transaction {
 	    version: 1,
@@ -203,37 +202,6 @@ impl BlockChain {
     pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
     }
-
-
-    /*
-    /// The first block in a blockchain, aka the "genesis block" needs to be created in a special way,
-    /// since there is no previous block in this case
-    /// recipient is the public/verifying key of the person who will receive the coinbase for this block
-    fn spawn_genesis_block(&mut self, recipient: VerifyingKey<Secp256k1>) {
-	assert!(self.is_empty()); // We can only spawn a genesis block when the blockchain is empty
-	// let now = SystemTime::now();
-	let transaction = self.construct_coinbase_transaction(recipient);
-	let transaction_list = TransactionList::new(vec![transaction]);
-	let block_header =  BlockHeader {
-	    version: 1, // 4 bytes: A version number to track software/protocol upgrades
-	    previous_block_hash: U256::ZERO,
-	    merkle_root: transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
-	    time_stamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), // now is after unix_epoch so we can unrwap
-	    difficulty_bits: STARTING_DIFFICULTY_BITS,
-	    nonce: None, // this will get filled by the mining process
-	};
-	
-	let mut genesis_block =  Block {
-	    block_size: 100, // TODO: how is this measured?
-	    block_header: block_header,
-	    transaction_count: 1,
-	    transaction_list: transaction_list,
-	};
-
-	genesis_block.mine();
-	println!("after mining: {:?}", genesis_block);	
-	self.add_block(genesis_block);	
-    }*/
 
     /// given the recipient of the coinbase transaction, we construct and return a list of transactions to include in the
     /// next candidate block.
@@ -253,7 +221,7 @@ impl BlockChain {
 
     /// get the hash of the block header of the previous block in the chain
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
-    fn get_previous_block_hash(&self) -> U256 {
+    fn get_previous_block_hash(&self) -> Hash {
 	if self.is_empty() {
 	    U256::ZERO
 	} else {
