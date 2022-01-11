@@ -13,7 +13,7 @@ pub type Hash = U256;
 #[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
-    PushKey(EncodedPoint<Secp256k1>),
+    PushKey(Box<[u8]>), //EncodedPoint<Secp256k1>),
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
     //PushSigningKey(SigningKey<Secp256k1>), 
     //OpAdd,
