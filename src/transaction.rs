@@ -6,22 +6,38 @@ use elliptic_curve::sec1::{EncodedPoint};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Serializer, Deserialize, ser::SerializeSeq};
 use bincode;
 
 //pub type Hash = U256;
 #[derive(Debug)]
 pub struct Hash (pub U256); // new struct so that we can impl serialize
 
+/*
 impl Serialize for Hash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(32))?;
+	let (hi, low) = self.0.into_words();	
+        for e in &hi.to_be_bytes() {
+            seq.serialize_element(e)?;
+        }
+        for e in &low.to_be_bytes() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
 }
 
+*/
 
-#[derive(Serialize, Deserialize, Debug)]
-//#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub enum StackOp {
     PushVal(u32),
-    //PushKey(EncodedPoint<Secp256k1>),
+    PushKey(&[u8]), // EncodedPoint<Secp256k1>),
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
     //PushSigningKey(SigningKey<Secp256k1>),	
     //OpAdd,
@@ -33,13 +49,12 @@ pub enum StackOp {
     //OP_EQ_VERIFY,
 }
 
-/*
+
 impl StackOp {
     fn to_be_bytes(&self) -> Vec<u8> {
 	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
 	//encoded
     }
-}*/
 
 /// The unlocking script when combined with a locking script and executed on the stack satisfies
 /// the requirment for ownership of the utxo
@@ -91,9 +106,9 @@ impl Transaction {
     /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-        hasher.update(encoded);
-	/*
+	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+        //hasher.update(encoded);
+	
         hasher.update(self.version.to_be_bytes());
         hasher.update(self.lock_time.to_be_bytes());
 
@@ -106,10 +121,9 @@ impl Transaction {
 		    hasher.update(hi.to_be_bytes());
 		    hasher.update(low.to_be_bytes());
 		    hasher.update(tx_out_index.to_be_bytes());
-		    /*
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
-		    } */
+		    }
 		    hasher.update(sequence.to_be_bytes());		    		    
 		},
 		TxIn::Coinbase{coinbase, sequence} => {
@@ -120,12 +134,11 @@ impl Transaction {
 	}
 	for tx_out in &self.tx_outs {
 	    hasher.update(tx_out.value.to_be_bytes());
-	    /*
 	    for op in &tx_out.locking_script.ops {
 		hasher.update(op.to_be_bytes());
-	    } */
+	    } 
 	}
-	 */
+
 	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);

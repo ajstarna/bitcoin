@@ -6,7 +6,7 @@ use ethnum::U256;
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Serializer, Deserialize};
 
 use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
 
@@ -23,7 +23,8 @@ const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // 
 /// Note that this packed format contains a sign bit in the 24th bit, and for example the negation of the above target would be 0x1b8404cb in packed format.
 /// Since targets are never negative in practice, however, this means the largest legal value for the lower 24 bits is 0x7fffff.
 /// Additionally, 0x008000 is the smallest legal value for the lower 24 bits since targets are always stored with the lowest possible exponent
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+//#[derive(Serialize, Deserialize)]
 struct DifficultyBits (pub u32);
 
 impl DifficultyBits {
@@ -53,8 +54,18 @@ impl DifficultyBits {
     }
 }
 
-//#[derive(Debug)]
-#[derive(Serialize, Deserialize, Debug)]
+/*
+impl Serialize for DifficultyBits {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u32(self.0)
+    }
+}*/
+
+#[derive(Debug)]
+//#[derive(Serialize, Deserialize, Debug)]
 pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
@@ -68,9 +79,8 @@ pub struct BlockHeader {
 impl BlockHeader {
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-        hasher.update(encoded);	
-	/*
+	//let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+        //hasher.update(encoded);	
         hasher.update(self.version.to_be_bytes());
 	let (hi, low) = self.previous_block_hash.0.into_words();
 	hasher.update(hi.to_be_bytes());
