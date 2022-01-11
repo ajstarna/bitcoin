@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 
-use crate::transaction::{Hash, TxOut};
+use crate::transaction::{TxOut};
+use crate::{Hash};
 use crate::block::{BlockChain};
 
 /// This struct holds a mapping from utxo hash to the utxo for all exisitng blocks

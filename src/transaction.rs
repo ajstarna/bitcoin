@@ -6,51 +6,10 @@ use elliptic_curve::sec1::{EncodedPoint};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Serialize, Serializer, Deserialize, ser::SerializeSeq};
-use bincode;
 
-/*
-#[derive(Debug)]
-pub struct Hash (pub U256); // new struct so that we can impl serialize
- */
+use crate::script::{Script, StackOp};
+use crate::Hash;
 
-pub type Hash = U256;
-
-/// enum to hold the various Scrypt operations and their associated values
-/// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
-/// (I couldn't find a more direct way to do that like everything else, but there might be)
-#[derive(Serialize, Deserialize, Debug)]
-pub enum StackOp {
-    PushVal(u32),
-    PushKey(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
-    //PushVerifyingKey(VerifyingKey<Secp256k1>),
-    //PushSigningKey(SigningKey<Secp256k1>),	
-    //OpAdd,
-    OpDup,
-    //OP_HASH_160,
-    OpEqual,
-    OpChecksig,
-    //OP_VERIFY,
-    //OP_EQ_VERIFY,
-}
-
-
-impl StackOp {
-    fn to_be_bytes(&self) -> Vec<u8> {
-	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
-	encoded
-    }
-}
-
-/// The unlocking script when combined with a locking script and executed on the stack satisfies
-/// the requirment for ownership of the utxo
-/// the locking script formally describes the conditions needed to spend a given UTXO,
-/// Usually requiring a signature from a specific address
-#[derive(Debug)]
-//#[derive(Serialize, Deserialize, Debug)]
-pub struct Script {
-    pub ops: Vec<StackOp>
-}
 
 #[derive(Debug)]
 pub enum TxIn {

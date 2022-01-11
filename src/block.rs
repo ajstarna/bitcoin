@@ -7,7 +7,9 @@ use ethnum::U256;
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
-use super::transaction::{Hash, Transaction, Script, StackOp, TxOut, TxIn};
+use crate::Hash;
+use crate::transaction::{Transaction, TxOut, TxIn};
+use crate::script::{Script, StackOp};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
