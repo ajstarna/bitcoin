@@ -67,10 +67,10 @@ impl BlockHeader {
     fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
-	let (hi, low) = self.previous_block_hash.0.into_words();
+	let (hi, low) = self.previous_block_hash.into_words();
 	hasher.update(hi.to_be_bytes());
 	hasher.update(low.to_be_bytes());
-	let (hi, low) = self.merkle_root.0.into_words();
+	let (hi, low) = self.merkle_root.into_words();
 	hasher.update(hi.to_be_bytes());
 	hasher.update(low.to_be_bytes());
         hasher.update(self.time_stamp.to_be_bytes());
@@ -83,7 +83,7 @@ impl BlockHeader {
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
 	let low = rdr.read_u128::<BigEndian>().unwrap();
-        Hash(U256::from_words(hi, low))
+        U256::from_words(hi, low)
     }
 }
 
@@ -98,7 +98,7 @@ impl TransactionList {
     }
 	
     pub fn get_merkle_root(&self) -> Hash {
-	Hash(U256::ZERO)
+	U256::ZERO
     }
 
     pub fn len(&self) -> u32 {
@@ -124,7 +124,7 @@ impl Block {
 	let mut nonce: u32 = 0;
 	loop {
 	    self.block_header.nonce = Some(nonce);
-	    let struct_hash = self.block_header.hash().0;
+	    let struct_hash = self.block_header.hash();
 	    //println!("nonce = {:?}, hash = {:?}, leading_zeros = {:?}", nonce, struct_hash, struct_hash.leading_zeros());
 	    //if struct_hash.is_less_than_or_equal(&difficulty_vector) {
 	    if struct_hash <= difficulty_target {	    
@@ -223,7 +223,7 @@ impl BlockChain {
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
     fn get_previous_block_hash(&self) -> Hash {
 	if self.is_empty() {
-	    Hash(U256::ZERO)
+	    U256::ZERO
 	} else {
 	    let previous_block = self.blocks.last().unwrap();
 	    previous_block.block_header.hash()

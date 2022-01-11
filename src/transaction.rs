@@ -9,8 +9,12 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Serialize, Serializer, Deserialize, ser::SerializeSeq};
 use bincode;
 
+/*
 #[derive(Debug)]
 pub struct Hash (pub U256); // new struct so that we can impl serialize
+ */
+
+pub type Hash = U256;
 
 /// enum to hold the various Scrypt operations and their associated values
 /// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
@@ -91,7 +95,7 @@ impl Transaction {
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
-		    let (hi, low) = tx_hash.0.into_words();
+		    let (hi, low) = tx_hash.into_words();
 		    hasher.update(hi.to_be_bytes());
 		    hasher.update(low.to_be_bytes());
 		    hasher.update(tx_out_index.to_be_bytes());
@@ -118,7 +122,7 @@ impl Transaction {
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
 	let low = rdr.read_u128::<BigEndian>().unwrap();
-        Hash(U256::from_words(hi, low))
+        U256::from_words(hi, low)
     }
 
 }
@@ -149,5 +153,34 @@ mod tests {
 	if let TxIn::Coinbase {coinbase, sequence} = tx_in {
             assert_eq!(33, coinbase);
 	}
+    }
+
+    #[test]
+    fn test_hash_transaction() {
+	let tx_in = TxIn::Coinbase {
+	    coinbase: 33,
+	    sequence: 5580,
+	};
+	let tx_out1 = TxOut {
+	    value: 222,
+	    locking_script: Script {ops: vec![StackOp::OpDup]},	    
+	};
+	let tx_out2 = TxOut {
+	    value: 333,
+	    locking_script: Script {ops: vec![StackOp::OpEqual]},	    	    
+	};
+	let transaction = Transaction {
+	    version: 1,
+	    lock_time: 5,
+	    tx_ins: vec![tx_in],
+	    tx_outs: vec![tx_out1, tx_out2],		
+	};
+
+	// note: this is simply the hash that comes out when i presently run it.
+	// This will at least show if something changes unexpectedly in the future
+	// 9867146778677399561412053178184496996625184432557161352426664471158288654564 decimal
+	// 15D09B6F36496CB1D7693954A23078B60AAD40F539D3503C52A314892AB1A0E4 hex
+	let hash = transaction.hash();
+	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }
 }
