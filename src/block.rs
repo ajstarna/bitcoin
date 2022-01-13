@@ -279,10 +279,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // just ignore for now so we dont spend time mining
-    fn run_3_blocks() {
+    //#[ignore] // just ignore for now so we dont spend time mining
+    fn run_blocks() {
 	let mut chain = BlockChain::new();
-	let num_blocks = 3;
+	let num_blocks = 2;
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	

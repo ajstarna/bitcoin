@@ -4,10 +4,10 @@ use bincode;
 /// enum to hold the various Script operations and their associated values
 /// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
 /// (I couldn't find a more direct way to do that like everything else, but there might be)
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StackOp {
     Bool(bool),
-    Val(u32),
+    Val(i32),
     Key(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
     //PushVerifyingKey(VerifyingKey<Secp256k1>),
     //PushSigningKey(SigningKey<Secp256k1>),	
@@ -43,6 +43,8 @@ pub struct Script {
 /// given an unlocking script and a locking script, this function executes them on a stack and
 /// returns a bool to indicate if the unlocking script is valid for the locking script, i.e. is the
 /// the associated transaction allowed
+/// "A transaction is valid if nothing in the combined script triggers failure and the top stack
+/// item is True when the script exits."
 fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
     let mut stack: Vec<StackOp> = Vec::new();
     for op in unlocking_script.ops.iter().chain(locking_script.ops.iter()) {
@@ -50,7 +52,7 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	match op {
 	    StackOp::Bool(val) => stack.push(StackOp::Bool(*val)),	    
 	    StackOp::Val(val) => stack.push(StackOp::Val(*val)),
-	    StackOp::Key(bytes_box) => stack.push(*op), //StackOp::Key(Box::new(*bytes_box.clone()))),
+	    StackOp::Key(bytes_box) => stack.push(StackOp::Key(bytes_box.clone())),
 	    StackOp::OpAdd => {
 		// attempt to pop two numbers off the stack, add them, then put the result
 		// back on the stack. If this is not possible, we return false as invalid
@@ -68,7 +70,8 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 		// attempt to pop two numbers off the stack, sub them, then put the result
 		// back on the stack. If this is not possible, we return false as invalid
 		if let (Some(op1), Some(op2)) = (stack.pop(), stack.pop()) {
-		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (op1, op2) {
+		    if let (StackOp::Val(val2), StackOp::Val(val1)) = (op1, op2) {
+			// we want to sub the bottom by the top
 			stack.push(StackOp::Val(val1 - val2));
 		    } else {
 			return false;
@@ -130,7 +133,13 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	    }
 	}
     }
-    false    
+    // nothing triggered an early exit, so check if the top value is True
+    if let Some(op) = stack.pop() {
+	if let StackOp::Bool(val) = op {	
+	    return val
+	}
+    }
+    false
 }
 
     
@@ -149,7 +158,7 @@ mod tests {
     }
 
     #[test]    
-    fn test_valid_simple_equal_with_extra_on_stack() {
+    fn test_valid_equal_with_extra_on_stack() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(1), StackOp::Val(5)]};
 	let is_valid = execute_scripts(unlocking_script, locking_script);
@@ -201,7 +210,7 @@ mod tests {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(20), StackOp::Val(20), StackOp::OpSub]};
 	let is_valid = execute_scripts(unlocking_script, locking_script);
-	assert_eq!(is_valid, true);
+	assert_eq!(is_valid, false);
     }    
 
 }

@@ -1,8 +1,8 @@
-use ecdsa::{SigningKey, VerifyingKey};
+//use ecdsa::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
 use k256::{Secp256k1};
 use ethnum::U256;
-use elliptic_curve::sec1::{EncodedPoint};
+//use elliptic_curve::sec1::{EncodedPoint};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -86,18 +86,6 @@ impl Transaction {
 
 }
 
-pub fn is_valid(transaction: Transaction) -> bool {
-    for tx_in in &transaction.tx_ins {
-	if let TxIn::TxPrevious { tx_hash, tx_out_index, unlocking_script, sequence} = tx_in {
-	    // we only need to consider normal tx-ins here. Coinbase transactions should be checked separately
-	    println!("{:?}", tx_hash);
-	}
-
-    }
-    true
-}
-
-
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -109,7 +97,7 @@ mod tests {
 	    coinbase: 33,
 	    sequence: 5580,
 	};
-	if let TxIn::Coinbase {coinbase, sequence} = tx_in {
+	if let TxIn::Coinbase {coinbase, sequence: _} = tx_in {
             assert_eq!(33, coinbase);
 	}
     }
