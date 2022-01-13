@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
+use ecdsa::signature::{Signer, Verifier}; // trait in scipe for signing a message
 use bincode;
 
 /// enum to hold the various Script operations and their associated values
@@ -257,8 +258,42 @@ mod tests {
     #[test]
     fn test_signature() {
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	println!("priv before as bytes: {:?}", b);
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
-	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
+	let b_2 = private_key.to_bytes();
+	println!("priv after as bytes: {:?}", b_2);
+
+
+	let msg = "message_to_sign".as_bytes();
+
+	let sig = private_key.try_sign(msg).expect("should be able to sign here");
+	println!("sig: {:?}", sig);	
+	
+	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
+	let c = public_key.to_encoded_point(true).to_bytes();
+	println!("public as bytes: {:?}", c);
+
+	let verified = public_key.verify(msg, &sig);
+	println!("verified = {:?}", verified);
+
+
+	// sig should not work for this
+	let other_msg = "not_the_message_to_sign".as_bytes();
+	let verified2 = public_key.verify(other_msg, &sig);
+	println!("verified2 = {:?}", verified2);
+
+
+
+	let verified = public_key.verify(msg, &sig);
+	println!("verified once more = {:?}", verified);
+	
+	/*
+	fn verify(&self, msg: &[u8], signature: &Signature<C>) -> Result<()> {
+        self.verify_digest(C::Digest::new().chain(msg), signature)
+	}
+	 */
+	
+
     }
 
 }
