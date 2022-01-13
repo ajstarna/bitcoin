@@ -1,4 +1,6 @@
 use serde::{Serialize, Deserialize};
+use ecdsa::{SigningKey, VerifyingKey};
+use k256::{Secp256k1};
 use bincode;
 
 /// enum to hold the various Script operations and their associated values
@@ -112,7 +114,9 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	    StackOp::OpVerify => {
 		if let Some(op1) = stack.pop() {
 		    if let StackOp::Bool(val1) = op1 {
-			return val1;
+			if !val1 {
+			    return false;
+			}
 		    } else {
 			return false;
 		    }
@@ -123,7 +127,9 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	    StackOp::OpEqVerify => {
 		if let (Some(op1), Some(op2)) = (stack.pop(), stack.pop()) {
 		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (op1, op2) {
-			return val1 == val2;
+			if val1 != val2 {
+			    return false
+			}
 		    } else {
 			return false;
 		    }
@@ -211,6 +217,48 @@ mod tests {
 	let unlocking_script = Script {ops: vec![StackOp::Val(20), StackOp::Val(20), StackOp::OpSub]};
 	let is_valid = execute_scripts(unlocking_script, locking_script);
 	assert_eq!(is_valid, false);
-    }    
+    }
+
+    #[test]
+    fn test_op_verify() {
+	// verify should simply not return false at that moment, but the scipt ends invalid with false on top
+	let locking_script = Script {ops: vec![StackOp::Bool(true), StackOp::OpVerify]};
+	let unlocking_script = Script {ops: vec![StackOp::Bool(false)]};
+	let is_valid = execute_scripts(unlocking_script, locking_script);
+	assert_eq!(is_valid, false);
+    }
+
+    fn test_op_verify2() {
+	// verify will reuturn false, even though the stack would end with true on top
+	let locking_script = Script {ops: vec![StackOp::Bool(false), StackOp::OpVerify]};
+	let unlocking_script = Script {ops: vec![StackOp::Bool(true)]};
+	let is_valid = execute_scripts(unlocking_script, locking_script);
+	assert_eq!(is_valid, false);
+    }
+    
+    #[test]
+    fn test_op_eq_verify() {
+	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::Val(5), StackOp::OpEqVerify]};
+	let unlocking_script = Script {ops: vec![StackOp::Bool(false)]};
+	let is_valid = execute_scripts(unlocking_script, locking_script);
+	assert_eq!(is_valid, false);
+	
+    }
+
+    #[test]
+    fn test_op_eq_verify2() {
+	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::Val(4), StackOp::OpEqVerify]};
+	let unlocking_script = Script {ops: vec![StackOp::Bool(true)]};
+	let is_valid = execute_scripts(unlocking_script, locking_script);
+	assert_eq!(is_valid, false);
+	
+    }
+    
+    #[test]
+    fn test_signature() {
+	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
+	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
+    }
 
 }

@@ -279,7 +279,6 @@ mod tests {
     }
 
     #[test]
-    //#[ignore] // just ignore for now so we dont spend time mining
     fn run_blocks() {
 	let mut chain = BlockChain::new();
 	let num_blocks = 2;
