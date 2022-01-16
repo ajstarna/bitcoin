@@ -2,10 +2,11 @@ use serde::{Serialize, Deserialize};
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
-use ecdsa::signature::{Signer, Verifier}; // trait in scipe for signing a message
+use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scipe for signing a message
+
+use elliptic_curve::sec1::{EncodedPoint};
 use ethnum::U256;
 use bincode;
-
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
@@ -25,7 +26,7 @@ pub enum StackOp {
     OpDup, // duplicate the top value of the stack
     OpEqual, // pop the top two values, and put val1 == val2 on the top of the stack
     OpHash160, // run the top element of the stack through hash 160    
-    OpChecksig,
+    OpCheckSig,
     OpVerify, // mark the transaction as invalid if the top value on the stack is not true
     OpEqVerify, // combine OpEq and OpVerify in one go.
 }
@@ -114,6 +115,9 @@ fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_previo
 		    if let StackOp::Val(val1) = op1 {
 			stack.push(StackOp::Val(val1));
 			stack.push(StackOp::Val(val1));			
+		    } else if let StackOp::Bytes(bytes_box) = op1 {
+			stack.push(StackOp::Bytes(bytes_box.clone()));
+			stack.push(StackOp::Bytes(bytes_box.clone()));			
 		    } else {
 			return false;
 		    }
@@ -161,9 +165,36 @@ fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_previo
 		    return false;
 		}
 	    }
-	    StackOp::OpChecksig => {
-		// TODO
-		return false;
+	    StackOp::OpCheckSig => {
+		if let (Some(op1), Some(op2)) = (stack.pop(), stack.pop()) {
+		    if let (StackOp::Bytes(bytes_pub), StackOp::Bytes(bytes_sig)) = (&op1, &op2) {
+			let encoded_point_opt = EncodedPoint::<Secp256k1>::from_bytes(bytes_pub);
+			if let Ok(encoded_point) = encoded_point_opt {
+			    let public_key_opt = VerifyingKey::<Secp256k1>::from_encoded_point(&encoded_point);
+			    if let Ok(public_key) = public_key_opt {
+				let signature: ecdsa::Signature<Secp256k1> = Signature::from_bytes(bytes_sig).expect("problem deserializing signature");
+				// the "message" that was signed was the transaction of the previous hash that
+				// led to the locking script that we are currently trying to unlock.
+				let verified = public_key.verify(tx_previous_hash, &signature);
+				if let Ok(verified) = verified {
+				    stack.push(StackOp::Bool(true));
+				} else {
+				    stack.push(StackOp::Bool(false));				    
+				}
+			} else {
+			    return false;
+			}
+			} else {
+			    // if we couldn't get a public key from the bytes
+			    return false;
+			}
+		    } else {
+			return false;
+		    }
+		} else {
+		    return false;
+		}
+		
 	    }
 	    StackOp::OpVerify => {
 		if let Some(op1) = stack.pop() {
@@ -356,7 +387,14 @@ mod tests {
 	let msg = "message_to_sign".as_bytes();
 
 	let sig = private_key.try_sign(msg).expect("should be able to sign here");
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u8`, found struct `ecdsa::Signature`
 	println!("sig: {:?}", sig);	
+
+	let sig_as_bytes: &[u8] = sig.as_bytes();
+	println!("sig as bytes: {:?}", sig_as_bytes);
+
+	// lol there is a Signature trait and a Signature struct?
+	let sig2:  ecdsa::Signature<Secp256k1> = Signature::from_bytes(sig_as_bytes).expect("problem deserializing");
 	
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
 	let c = public_key.to_encoded_point(true).to_bytes();
@@ -391,11 +429,11 @@ mod tests {
 	let priv_bytes = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&priv_bytes).unwrap();
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
-	let pub_bytes = public_key.to_encoded_point(true).to_bytes();
+	let public_key_bytes = public_key.to_encoded_point(true).to_bytes();
 
-	let pub_hash = hash_160_to_bytes(&pub_bytes);
+	let pub_hash = hash_160_to_bytes(&public_key_bytes);
 	
-	let locking_script = Script {ops: vec![StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqual]};
+	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqVerify, StackOp::OpCheckSig]};
 
 	// Note: we could probably just pass in an arbitrary hash, but lets use a "real" transaction hash
 	// To keep the testing more integrated.
@@ -420,11 +458,9 @@ mod tests {
 
 	let sig = private_key.try_sign(&tx_hash_bytes).expect("should be able to sign the transaction hash here");
 	println!("sig: {:?}", sig);	
+	let sig_as_bytes = sig.as_bytes().to_vec(); //TODO: is there a way to go right from &[u8] --> Box instead of through vec?
 
-	//let verified = public_key.verify(msg, &sig);
-	
-
-	let unlocking_script = Script {ops: vec![StackOp::Bytes(pub_bytes)]};
+	let unlocking_script = Script {ops: vec![StackOp::Bytes(sig_as_bytes.into_boxed_slice()), StackOp::Bytes(public_key_bytes)]};
 	let is_valid = execute_scripts(&unlocking_script, &locking_script, &tx_hash_bytes);
 	assert_eq!(is_valid, true);
 	
