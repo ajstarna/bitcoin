@@ -1,8 +1,16 @@
 use serde::{Serialize, Deserialize};
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
+use sha2::{Sha256, Digest};
 use ecdsa::signature::{Signer, Verifier}; // trait in scipe for signing a message
+use ethnum::U256;
 use bincode;
+
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt};
+
+
+use crate::Hash;
 
 /// enum to hold the various Script operations and their associated values
 /// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
@@ -11,14 +19,12 @@ use bincode;
 pub enum StackOp {
     Bool(bool),
     Val(i32),
-    Key(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1>
-    //PushVerifyingKey(VerifyingKey<Secp256k1>),
-    //PushSigningKey(SigningKey<Secp256k1>),	
+    Bytes(Box<[u8]>), // the data stored here is the byte representation of an EncodedPoint<Secp256k1> or a hash of it
     OpAdd, // pop the top two values, and put val1 + val2 on the top of the stack
     OpSub, // pop the top two values, and put val1 (bottom) - val2 (top) on the top of the stack
     OpDup, // duplicate the top value of the stack
-    //OP_HASH_160,
     OpEqual, // pop the top two values, and put val1 == val2 on the top of the stack
+    OpHash160, // run the top element of the stack through hash 160    
     OpChecksig,
     OpVerify, // mark the transaction as invalid if the top value on the stack is not true
     OpEqVerify, // combine OpEq and OpVerify in one go.
@@ -36,26 +42,44 @@ impl StackOp {
 /// the requirment for ownership of the utxo
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 //#[derive(Serialize, Deserialize, Debug)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
 
+/// TODO: add the second half of this hash
+pub fn hash_160_to_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher.finalize().to_vec()
+
+    /*
+    let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
+    // we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
+    let mut rdr = Cursor::new(hash_vecs);
+    let hi = rdr.read_u128::<BigEndian>().unwrap();
+    let low = rdr.read_u128::<BigEndian>().unwrap();
+    U256::from_words(hi, low)
+    */
+}
 
 /// given an unlocking script and a locking script, this function executes them on a stack and
 /// returns a bool to indicate if the unlocking script is valid for the locking script, i.e. is the
 /// the associated transaction allowed
 /// "A transaction is valid if nothing in the combined script triggers failure and the top stack
 /// item is True when the script exits."
-fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
+/// The previous transaction hash (for the tx_prev that we are trying to unlock) is used for OpChecksig as
+/// the "message" to verify the signature on. If OpChecksig does not occur, then this argument is not used
+fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_previous_hash: &[u8]) -> bool {
     let mut stack: Vec<StackOp> = Vec::new();
     for op in unlocking_script.ops.iter().chain(locking_script.ops.iter()) {
-	println!("{:?}", op);
+	println!("stack = {:?}", stack);	
+	println!("op = {:?}", op);
 	match op {
 	    StackOp::Bool(val) => stack.push(StackOp::Bool(*val)),	    
 	    StackOp::Val(val) => stack.push(StackOp::Val(*val)),
-	    StackOp::Key(bytes_box) => stack.push(StackOp::Key(bytes_box.clone())),
+	    StackOp::Bytes(bytes_box) => stack.push(StackOp::Bytes(bytes_box.clone())),
 	    StackOp::OpAdd => {
 		// attempt to pop two numbers off the stack, add them, then put the result
 		// back on the stack. If this is not possible, we return false as invalid
@@ -97,13 +121,39 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 		    return false;
 		}
 	    }
-	    //StackOp::OP_HASH_160 => (),
+	    StackOp::OpHash160 => {
+		if let Some(op1) = stack.pop() {
+		    match op1 {
+			/*
+			StackOp::Val(val1) => {
+			    let hash = hash_160_to_bytes(&val1.to_be_bytes());
+			    stack.push(StackOp::Bytes(hash.into_boxed_slice()));
+			},
+			 */
+			StackOp::Bytes(bytes) => {
+			    let hash = hash_160_to_bytes(&bytes);
+			    stack.push(StackOp::Bytes(hash.into_boxed_slice()));
+			}
+			_ => {
+			    ()
+			},
+		    }
+		} else {
+		    return false;
+		}
+	    }
+		
 	    StackOp::OpEqual => {
 		// attempt to pop two numbers off the stack, and see if they are equal
 		// if so, we put true on the stack
 		if let (Some(op1), Some(op2)) = (stack.pop(), stack.pop()) {
-		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (op1, op2) {
+		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (&op1, &op2) {
 			stack.push(StackOp::Bool(val1 == val2));
+		    } else if let (StackOp::Bytes(bytes1), StackOp::Bytes(bytes2)) = (&op1, &op2) {
+			println!("bytes1 = {:?}", bytes1);
+			println!("bytes2 = {:?}", bytes2);			
+			println!("bytes1 == bytes2 = {:?}", bytes1 == bytes2);						
+			stack.push(StackOp::Bool(bytes1 == bytes2));
 		    } else {
 			return false;
 		    }
@@ -111,7 +161,10 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 		    return false;
 		}
 	    }
-	    StackOp::OpChecksig => (),
+	    StackOp::OpChecksig => {
+		// TODO
+		return false;
+	    }
 	    StackOp::OpVerify => {
 		if let Some(op1) = stack.pop() {
 		    if let StackOp::Bool(val1) = op1 {
@@ -127,8 +180,12 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	    }
 	    StackOp::OpEqVerify => {
 		if let (Some(op1), Some(op2)) = (stack.pop(), stack.pop()) {
-		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (op1, op2) {
+		    if let (StackOp::Val(val1), StackOp::Val(val2)) = (&op1, &op2) {
 			if val1 != val2 {
+			    return false
+			}
+		    } else if let (StackOp::Bytes(bytes1), StackOp::Bytes(bytes2)) = (&op1, &op2) {
+			if bytes1 != bytes2 {
 			    return false
 			}
 		    } else {
@@ -140,6 +197,7 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 	    }
 	}
     }
+    println!("stack at end = {:?}", stack);
     // nothing triggered an early exit, so check if the top value is True
     if let Some(op) = stack.pop() {
 	if let StackOp::Bool(val) = op {	
@@ -155,12 +213,13 @@ fn execute_scripts(unlocking_script: Script, locking_script: Script) -> bool {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use crate::transaction::{Transaction, TxIn, TxOut};
     
     #[test]    
     fn test_valid_simple_equal() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(5)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, true);
     }
 
@@ -168,7 +227,7 @@ mod tests {
     fn test_valid_equal_with_extra_on_stack() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(1), StackOp::Val(5)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);	
 	assert_eq!(is_valid, true);
     }
     
@@ -176,7 +235,7 @@ mod tests {
     fn test_invalid_simple_equal() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(6)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, false);
     }
 
@@ -184,7 +243,7 @@ mod tests {
     fn test_valid_add() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(3), StackOp::Val(2), StackOp::OpAdd]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, true);
     }
 
@@ -192,7 +251,7 @@ mod tests {
     fn test_valid_add_more_in_locking() {
 	let locking_script = Script {ops: vec![StackOp::Val(2), StackOp::OpAdd, StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(3)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, true);
     }
     
@@ -200,7 +259,7 @@ mod tests {
     fn test_valid_add_and_dup() {
 	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpAdd, StackOp::Val(8), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(4)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, true);
     }
 
@@ -208,7 +267,7 @@ mod tests {
     fn test_valid_sub() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(20), StackOp::Val(15), StackOp::OpSub]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);	
 	assert_eq!(is_valid, true);
     }
 
@@ -216,7 +275,7 @@ mod tests {
     fn test_invalid_sub() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::OpEqual]};
 	let unlocking_script = Script {ops: vec![StackOp::Val(20), StackOp::Val(20), StackOp::OpSub]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);	
 	assert_eq!(is_valid, false);
     }
 
@@ -225,7 +284,7 @@ mod tests {
 	// verify should simply not return false at that moment, but the scipt ends invalid with false on top
 	let locking_script = Script {ops: vec![StackOp::Bool(true), StackOp::OpVerify]};
 	let unlocking_script = Script {ops: vec![StackOp::Bool(false)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, false);
     }
 
@@ -233,7 +292,7 @@ mod tests {
 	// verify will reuturn false, even though the stack would end with true on top
 	let locking_script = Script {ops: vec![StackOp::Bool(false), StackOp::OpVerify]};
 	let unlocking_script = Script {ops: vec![StackOp::Bool(true)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, false);
     }
     
@@ -241,19 +300,49 @@ mod tests {
     fn test_op_eq_verify() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::Val(5), StackOp::OpEqVerify]};
 	let unlocking_script = Script {ops: vec![StackOp::Bool(false)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, false);
-	
     }
 
     #[test]
     fn test_op_eq_verify2() {
 	let locking_script = Script {ops: vec![StackOp::Val(5), StackOp::Val(4), StackOp::OpEqVerify]};
 	let unlocking_script = Script {ops: vec![StackOp::Bool(true)]};
-	let is_valid = execute_scripts(unlocking_script, locking_script);
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
 	assert_eq!(is_valid, false);
-	
     }
+
+    #[test]    
+    fn test_valid_multiple_dup() {
+	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpDup, StackOp::OpDup, StackOp::Val(8), StackOp::OpEqual]};
+	let unlocking_script = Script {ops: vec![StackOp::Val(8)]};
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
+	assert_eq!(is_valid, true);
+    }
+
+
+
+    #[test]
+    fn test_op_hash_160_valid() {
+	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	let answer = hash_160_to_bytes(&b);
+	let locking_script = Script {ops: vec![StackOp::OpHash160, StackOp::Bytes(answer.into_boxed_slice()), StackOp::OpEqual]};
+	let unlocking_script = Script {ops: vec![StackOp::Bytes(b.into())]};
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &[0]);
+	assert_eq!(is_valid, true);
+    }
+
+    /*
+    #[test]
+    fn test_op_hash_160_invalid() {
+	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	let answer = 5;
+	let locking_script = Script {ops: vec![StackOp::OpHash160, StackOp::Val(answer), StackOp::OpEqVerify]};
+	let unlocking_script = Script {ops: vec![StackOp::Bytes(b)]};
+	let is_valid = execute_scripts(unlocking_script, locking_script, 0);
+	assert_eq!(is_valid, false);
+    }
+     */
     
     #[test]
     fn test_signature() {
@@ -286,12 +375,58 @@ mod tests {
 
 	let verified = public_key.verify(msg, &sig);
 	println!("verified once more = {:?}", verified);
-	
+
+
+    }
+
+    #[test]
+    fn test_op_check_sig() {
 	/*
-	fn verify(&self, msg: &[u8], signature: &Signature<C>) -> Result<()> {
-        self.verify_digest(C::Digest::new().chain(msg), signature)
-	}
+	e.g.
+	LOCKING:
+	"OP_DUP OP_HASH160 7f9b1a7fb68d60c536c2fd8aeaa53a8f3cc025a8 OP_EQUALVERIFY OP_CHECKSIG"
 	 */
+	
+
+	let priv_bytes = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&priv_bytes).unwrap();
+	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
+	let pub_bytes = public_key.to_encoded_point(true).to_bytes();
+
+	let pub_hash = hash_160_to_bytes(&pub_bytes);
+	
+	let locking_script = Script {ops: vec![StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqual]};
+
+	// Note: we could probably just pass in an arbitrary hash, but lets use a "real" transaction hash
+	// To keep the testing more integrated.
+	
+	let tx_in = TxIn::Coinbase {
+	    coinbase: 33,
+	    sequence: 5580,
+	};
+	let tx_out1 = TxOut {
+	    // This is the TxOut that we would be unlocking
+	    value: 222,
+	    locking_script: locking_script.clone()
+	};
+	let transaction = Transaction {
+	    version: 1,
+	    lock_time: 5,
+	    tx_ins: vec![tx_in],
+	    tx_outs: vec![tx_out1],		
+	};
+	let tx_hash_bytes = transaction.hash_to_bytes();
+
+
+	let sig = private_key.try_sign(&tx_hash_bytes).expect("should be able to sign the transaction hash here");
+	println!("sig: {:?}", sig);	
+
+	//let verified = public_key.verify(msg, &sig);
+	
+
+	let unlocking_script = Script {ops: vec![StackOp::Bytes(pub_bytes)]};
+	let is_valid = execute_scripts(&unlocking_script, &locking_script, &tx_hash_bytes);
+	assert_eq!(is_valid, true);
 	
 
     }

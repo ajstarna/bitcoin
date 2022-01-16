@@ -43,10 +43,8 @@ pub struct Transaction {
 
 impl Transaction {
 
-    /// hash all the bytes of the transaction
-    /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
-    /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?
-    fn hash(&self) -> Hash {
+
+    pub fn hash_to_bytes(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
         hasher.update(self.lock_time.to_be_bytes());
@@ -75,8 +73,16 @@ impl Transaction {
 		hasher.update(op.to_be_bytes());
 	    } 
 	}
+	hasher.finalize().to_vec()
+    }
 
-	let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
+	
+    /// hash all the bytes of the transaction
+    /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
+    /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?x	
+    pub fn hash(&self) -> Hash {
+	//let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
+	let hash_vecs: Vec<u8> = self.hash_to_bytes();
 	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
@@ -127,6 +133,10 @@ mod tests {
 	// This will at least show if something changes unexpectedly in the future
 	// 9867146778677399561412053178184496996625184432557161352426664471158288654564 decimal
 	// 15D09B6F36496CB1D7693954A23078B60AAD40F539D3503C52A314892AB1A0E4 hex
+
+
+	// Note: adter working on the code more (and the script/stack stuff in particular). This now fails hmm
+	// change to StackOp enum or something? interesting
 	let hash = transaction.hash();
 	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }

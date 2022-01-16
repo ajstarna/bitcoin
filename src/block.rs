@@ -188,7 +188,7 @@ impl BlockChain {
 	let reward = self.determine_coinbase_reward();
 	let tx_out = TxOut {
 	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
-	    locking_script: Script {ops: vec![StackOp::Key(recipient.to_encoded_point(true).to_bytes())]},
+	    locking_script: Script {ops: vec![StackOp::Bytes(recipient.to_encoded_point(true).to_bytes())]},
 	};
 	Transaction {
 	    version: 1,
