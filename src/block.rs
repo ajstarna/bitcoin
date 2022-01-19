@@ -5,11 +5,14 @@ use std::time::{SystemTime};
 use ethnum::U256;
 
 use std::io::Cursor;
+use std::collections::VecDeque;
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::Hash;
 use crate::transaction::{Transaction, TxOut, TxIn};
-use crate::script::{Script, StackOp};
+use crate::script::{Script, StackOp, execute_scripts};
+use crate::database::{TransactionDataBase};
+
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
@@ -98,7 +101,11 @@ impl TransactionList {
     pub fn new(transactions: Vec<Transaction>) -> Self {
 	Self { transactions}
     }
-	
+
+    pub fn push(&mut self, transaction: Transaction) {
+	self.transactions.push(transaction);
+    }
+    
     pub fn get_merkle_root(&self) -> Hash {
 	U256::ZERO
     }
@@ -148,6 +155,9 @@ impl Block {
 pub struct BlockChain {
     pub blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,
+    max_transactions_per_block: u32, // how many transactions can we fit in a block (TODO: actually a function of overall blocksize, not num transactions
+    mempool: VecDeque<Transaction>, // the mempool is a queue of transactions that want to get added to a block (FIFO at least for now)
+    transaction_database: TransactionDataBase, // keep track of previous transactions in an easier way. helps verify
 }
 
 
@@ -157,6 +167,9 @@ impl BlockChain {
 	Self {
 	    blocks: Vec::new(),
 	    difficulty_bits: STARTING_DIFFICULTY_BITS, //TODO: change over time
+	    max_transactions_per_block: 1000,
+	    mempool: VecDeque::new(),
+	    transaction_database: TransactionDataBase::new(),
 	}
     }
 
@@ -182,7 +195,7 @@ impl BlockChain {
 
     fn construct_coinbase_transaction(&self, recipient: VerifyingKey<Secp256k1>) -> Transaction {
 	let tx_in = TxIn::Coinbase {
-	    coinbase: 12345, // TODO: figure this out (sorta arbitrary i think?)
+	    coinbase: self.height(), // the coinbase field is sorta arbitrary, but adding the height here makes sure there won't be duplicate hashes of coinbase transactions,
 	    sequence: 5580,
 	};
 	let reward = self.determine_coinbase_reward();
@@ -198,7 +211,45 @@ impl BlockChain {
 	}
     }
     
+    /// if the transaction is valid (the unlocking script unlocks the locking script),
+    /// then it is adding to the mempool. else ag
+    pub fn try_add_tx_to_mempool(&mut self, transaction: Transaction) -> Result<(), Err> {
+	let mut tx_in_value_sum = 0; // the total value coming into this transaction from tx_ins
+	for tx_in in transaction.tx_ins {
+	    // each tx_in must be unlocked
+	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence  } = tx_in {
+		// TODO: make sure tx_hash is in the data base
+		let transaction_prev = database.get(tx_hash);
+		let tx_out_to_unlock = transaction_prev.tx_outs[tx_out_index];
+		let locking_script = tx_out_to_unlock.locking_script;
+		let transaction_prev_hash = transaction_prev.hash_to_bytes();
+		let is_valid = execute_scripts(&unlocking_script, &locking_script, &transaction_prev_hash);
+		tx_in_value_sum += tx_out_to_unlock.value;
+		// 
+		
+	    } else {
+		// we can only take as inputs previous outputs
+		return Err();
+	    }
+	}
 
+	// mext check that the tx_out values don't sum to more than the tx_in values
+	// TODO: make this a functional one-liner
+	let mut tx_out_value_sum = 0;
+	for tx_out in transaction.tx_outs {
+	    tx_out_value_sum += tx_out.value;
+	}
+
+	if tx_out_value_sum > tx_in_value_sum {
+	    return Err();
+	}
+
+	let miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
+
+	self.mempool.push_back(transaction);
+	Ok(())
+    }
+    
     /// given a new block, add it to the blockchain
     /// TODO: we should validate the block here or no?
     pub fn add_block(&mut self, block: Block) {
@@ -208,13 +259,14 @@ impl BlockChain {
     /// given the recipient of the coinbase transaction, we construct and return a list of transactions to include in the
     /// next candidate block.
     /// The coinbase transaction is always the first in the list.
-    fn construct_transaction_list(&self, recipient: VerifyingKey<Secp256k1>) -> TransactionList {
+    fn construct_transaction_list(&mut self, recipient: VerifyingKey<Secp256k1>) -> TransactionList {
 	let transaction = self.construct_coinbase_transaction(recipient);
-	let transaction_list = TransactionList::new(vec![transaction]);
+	let mut  transaction_list = TransactionList::new(vec![transaction]);
 	if ! self.is_empty() {
-	    // find other transactions to include, unless this is the first block	    
-	    for _ in 0..5 {
-		();
+	    // if is_empty()< 1 (i.e. this is the genesis block), then do not go to the mempool
+	    while self.mempool.len() > 0 {
+		let transaction = self.mempool.pop_front().unwrap(); // we already checked for len > 0, so can unwrap
+		transaction_list.push(transaction);
 	    }
 	}
 	transaction_list
@@ -232,7 +284,7 @@ impl BlockChain {
 	}
     }
     
-    pub fn construct_candidate_block(&self, recipient: VerifyingKey<Secp256k1>) -> Block {
+    pub fn construct_candidate_block(&mut self, recipient: VerifyingKey<Secp256k1>) -> Block {
 	let transaction_list = self.construct_transaction_list(recipient);
 	let previous_block_hash = self.get_previous_block_hash();
 	let block_header =  BlockHeader {
@@ -254,12 +306,6 @@ impl BlockChain {
 				 
     /// spawn a genesis block and then num_blocks more blocks
     fn run(&mut self, recipient: VerifyingKey<Secp256k1>, num_blocks: u32) {
-	for _ in 0..num_blocks {
-	    let mut block = self.construct_candidate_block(recipient);
-	    block.mine();
-	    println!("about to add block: {:?}", block);
-	    self.add_block(block);
-	}
     }
     
 }
@@ -279,13 +325,38 @@ mod tests {
     }
 
     #[test]
-    fn run_blocks() {
+    fn run_basic_blocks() {
+	// a couple blocks here with only the coinbase transaction
 	let mut chain = BlockChain::new();
 	let num_blocks = 2;
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
-	chain.run(public_key, num_blocks);
+	for _ in 0..num_blocks {
+	    let mut block = chain.construct_candidate_block(public_key);
+	    block.mine();
+	    println!("about to add block: {:?}", block);
+	    chain.add_block(block);
+	}
+	
+        assert_eq!(chain.height(), num_blocks);	
+    }
+    
+    #[test]
+    fn run_basic_blocks() {
+	// a couple blocks here with only the coinbase transaction
+	let mut chain = BlockChain::new();
+	let num_blocks = 2;
+	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
+	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
+	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
+	for _ in 0..num_blocks {
+	    let mut block = chain.construct_candidate_block(public_key);
+	    block.mine();
+	    println!("about to add block: {:?}", block);
+	    chain.add_block(block);
+	}
+	
         assert_eq!(chain.height(), num_blocks);	
     }
 

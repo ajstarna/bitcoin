@@ -27,6 +27,9 @@ pub enum TxIn {
     }
 }
 
+
+
+
 #[derive(Debug)]
 pub struct TxOut {
     pub value: u32, // number of Eves 
