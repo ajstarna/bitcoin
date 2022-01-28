@@ -219,7 +219,8 @@ impl BlockChain {
 	    // each tx_in must be unlocked
 	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence  } = tx_in {
 		// TODO: make sure tx_hash is in the data base
-		let transaction_prev = database.get(tx_hash);
+		let transaction_prev = self.transaction_database.get(&tx_hash);
+		// if None: i think return error?
 		let tx_out_to_unlock = transaction_prev.tx_outs[tx_out_index];
 		let locking_script = tx_out_to_unlock.locking_script;
 		let transaction_prev_hash = transaction_prev.hash_to_bytes();
@@ -229,7 +230,7 @@ impl BlockChain {
 		
 	    } else {
 		// we can only take as inputs previous outputs
-		return Err();
+		return Err("You can't use a coinbase as previous input");
 	    }
 	}
 
@@ -241,7 +242,7 @@ impl BlockChain {
 	}
 
 	if tx_out_value_sum > tx_in_value_sum {
-	    return Err();
+	    return Err("Attempting to spend more than available");
 	}
 
 	let miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
@@ -342,22 +343,4 @@ mod tests {
         assert_eq!(chain.height(), num_blocks);	
     }
     
-    #[test]
-    fn run_basic_blocks() {
-	// a couple blocks here with only the coinbase transaction
-	let mut chain = BlockChain::new();
-	let num_blocks = 2;
-	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
-	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
-	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
-	for _ in 0..num_blocks {
-	    let mut block = chain.construct_candidate_block(public_key);
-	    block.mine();
-	    println!("about to add block: {:?}", block);
-	    chain.add_block(block);
-	}
-	
-        assert_eq!(chain.height(), num_blocks);	
-    }
-
 }

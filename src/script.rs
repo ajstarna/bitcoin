@@ -72,7 +72,7 @@ pub fn hash_160_to_bytes(bytes: &[u8]) -> Vec<u8> {
 /// item is True when the script exits."
 /// The previous transaction hash (for the tx_prev that we are trying to unlock) is used for OpChecksig as
 /// the "message" to verify the signature on. If OpChecksig does not occur, then this argument is not used
-fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_previous_hash: &[u8]) -> bool {
+pub fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_previous_hash: &[u8]) -> bool {
     let mut stack: Vec<StackOp> = Vec::new();
     for op in unlocking_script.ops.iter().chain(locking_script.ops.iter()) {
 	println!("stack = {:?}", stack);	

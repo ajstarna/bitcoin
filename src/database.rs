@@ -24,6 +24,10 @@ impl TransactionDataBase {
 	}
     }
 
+    pub fn get(&self, entry: &Hash) -> Option<Transaction> {
+	self.transactions_by_hash.get(entry)
+    }
+	
     /// given a blockchain, we reads blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
     pub fn read_blocks(&mut self, blockchain: BlockChain) {
