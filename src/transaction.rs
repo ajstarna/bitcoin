@@ -17,7 +17,7 @@ pub enum TxIn {
     // or if it is part of a block reward, then can be a coinbase
     TxPrevious {
 	tx_hash: Hash, // Hash of the transaction that we are getting this input from
-	tx_out_index: u32,// The index of the tx_out within the transaction
+	tx_out_index: usize,// The index of the tx_out within the transaction
 	unlocking_script: Script, // AKA: ScriptSig, but lets follow Mastering Bitcoin's convention
 	sequence: u32, // TODO: what is this haha
     },

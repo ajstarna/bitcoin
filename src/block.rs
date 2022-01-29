@@ -213,19 +213,23 @@ impl BlockChain {
     
     /// if the transaction is valid (the unlocking script unlocks the locking script),
     /// then it is adding to the mempool. else ag
-    pub fn try_add_tx_to_mempool(&mut self, transaction: Transaction) -> Result<(), Err> {
+    pub fn try_add_tx_to_mempool(&mut self, transaction: Transaction) -> Result<(), &'static str> {
 	let mut tx_in_value_sum = 0; // the total value coming into this transaction from tx_ins
-	for tx_in in transaction.tx_ins {
+	for tx_in in &transaction.tx_ins {
 	    // each tx_in must be unlocked
 	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence  } = tx_in {
 		// TODO: make sure tx_hash is in the data base
-		let transaction_prev = self.transaction_database.get(&tx_hash);
+		let transaction_prev_opt = self.transaction_database.get(&tx_hash);
 		// if None: i think return error?
-		let tx_out_to_unlock = transaction_prev.tx_outs[tx_out_index];
-		let locking_script = tx_out_to_unlock.locking_script;
-		let transaction_prev_hash = transaction_prev.hash_to_bytes();
-		let is_valid = execute_scripts(&unlocking_script, &locking_script, &transaction_prev_hash);
-		tx_in_value_sum += tx_out_to_unlock.value;
+		if let Some(transaction_prev) = transaction_prev_opt {
+		    let tx_out_to_unlock = &transaction_prev.tx_outs[*tx_out_index];
+		    let locking_script = &tx_out_to_unlock.locking_script;
+		    let transaction_prev_hash = transaction_prev.hash_to_bytes();
+		    let is_valid = execute_scripts(&unlocking_script, locking_script, &transaction_prev_hash);
+		    tx_in_value_sum += tx_out_to_unlock.value;
+		} else {
+		    return Err("referenced transaction not found");
+		}
 		// 
 		
 	    } else {
@@ -237,7 +241,7 @@ impl BlockChain {
 	// mext check that the tx_out values don't sum to more than the tx_in values
 	// TODO: make this a functional one-liner
 	let mut tx_out_value_sum = 0;
-	for tx_out in transaction.tx_outs {
+	for tx_out in &transaction.tx_outs {
 	    tx_out_value_sum += tx_out.value;
 	}
 

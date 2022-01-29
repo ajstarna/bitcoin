@@ -24,7 +24,7 @@ impl TransactionDataBase {
 	}
     }
 
-    pub fn get(&self, entry: &Hash) -> Option<Transaction> {
+    pub fn get(&self, entry: &Hash) -> Option<&Transaction> {
 	self.transactions_by_hash.get(entry)
     }
 	
