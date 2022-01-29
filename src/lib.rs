@@ -1,9 +1,11 @@
 use ethnum::U256;
 
 mod transaction;
-mod block;
-mod database;
 mod script;
+mod block;
+mod blockchain;
+mod database;
+
 
 pub type Hash = U256;
 

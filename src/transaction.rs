@@ -11,7 +11,7 @@ use crate::script::{Script, StackOp};
 use crate::Hash;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
@@ -30,13 +30,13 @@ pub enum TxIn {
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TxOut {
     pub value: u32, // number of Eves 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transaction {
     pub version: u32,
     pub lock_time: u32,
@@ -140,6 +140,7 @@ mod tests {
 
 	// Note: adter working on the code more (and the script/stack stuff in particular). This now fails hmm
 	// change to StackOp enum or something? interesting
+	// Note2: after changing a type from u32 to usize i think it changed again too lol
 	let hash = transaction.hash();
 	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }

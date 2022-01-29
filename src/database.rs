@@ -4,8 +4,9 @@ use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 
 use crate::transaction::{Transaction, TxOut};
+use crate::block::{Block};
 use crate::{Hash};
-use crate::block::{BlockChain};
+use crate::blockchain::{BlockChain};
 
 /// This struct holds a mapping from transaction hash to the transaction for all exisitng blocks
 /// It also keeps a record of how many blocks it has seen so far
@@ -30,14 +31,14 @@ impl TransactionDataBase {
 	
     /// given a blockchain, we reads blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
-    pub fn read_blocks(&mut self, blockchain: BlockChain) {
+    pub fn read_blocks(&mut self, blocks: &Vec<Block>) {
 	// TODO: impl iterator for blockchain struct itself?
-	for block in blockchain.blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
-	    for transaction in block.transaction_list.transactions {
+	for block in blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
+	    for transaction in &block.transaction_list.transactions {
 		println!("transaction = {:?}", transaction);
 		let transaction_hash = transaction.hash();
 		println!("transaction_hash = {:?}", transaction_hash);
-		self.transactions_by_hash.insert(transaction_hash, transaction);
+		self.transactions_by_hash.insert(transaction_hash, transaction.clone());
 	    }
 	    self.num_blocks_analyzed += 1;
 	}
@@ -70,11 +71,10 @@ mod tests {
 	    let block = chain.construct_candidate_block(public_key);
 	    println!("about to add block: {:?}", block);
 	    chain.add_block(block);
-	    //let current_hash = 
 	}
 
 	let mut database = TransactionDataBase::new();
-	database.read_blocks(chain);
+	database.read_blocks(&chain.blocks);
 	assert_eq!(database.num_blocks_analyzed, num_blocks);
 	// each block only has the coinbase transaction
 	assert_eq!(database.transactions_by_hash.len(), num_blocks as usize);	
