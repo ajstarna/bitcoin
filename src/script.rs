@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use ecdsa::{SigningKey, VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
-use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scipe for signing a message
+use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
 
 use elliptic_curve::sec1::{EncodedPoint};
 use ethnum::U256;
@@ -424,13 +424,10 @@ mod tests {
 	LOCKING:
 	"OP_DUP OP_HASH160 7f9b1a7fb68d60c536c2fd8aeaa53a8f3cc025a8 OP_EQUALVERIFY OP_CHECKSIG"
 	 */
-	
-
 	let priv_bytes = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&priv_bytes).unwrap();
 	let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();
 	let public_key_bytes = public_key.to_encoded_point(true).to_bytes();
-
 	let pub_hash = hash_160_to_bytes(&public_key_bytes);
 	
 	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqVerify, StackOp::OpCheckSig]};
@@ -459,8 +456,8 @@ mod tests {
 	let sig = private_key.try_sign(&tx_hash_bytes).expect("should be able to sign the transaction hash here");
 	println!("sig: {:?}", sig);	
 	let sig_as_bytes = sig.as_bytes().to_vec(); //TODO: is there a way to go right from &[u8] --> Box instead of through vec?
-
 	let unlocking_script = Script {ops: vec![StackOp::Bytes(sig_as_bytes.into_boxed_slice()), StackOp::Bytes(public_key_bytes)]};
+	
 	let is_valid = execute_scripts(&unlocking_script, &locking_script, &tx_hash_bytes);
 	assert_eq!(is_valid, true);
 	
