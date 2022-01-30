@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn add_to_mempool_invalid_coinbase() {
-	// we attempt to add a transaction to the mempool that include a coinbase as a tx_in;
-	// this is invalid, since only the miner gets to construct a coinbase transaction
+	/// we attempt to add a transaction to the mempool that include a coinbase as a tx_in;
+	/// this is invalid, since only the miner gets to construct a coinbase transaction
 	let mut chain = BlockChain::new();
 	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
@@ -226,6 +226,36 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[test]
+    fn add_to_mempool_invalid_missing_tx() {
+	/// we attempt to add a transaction to the mempool that include a reference to a tx that does not exist
+	let mut chain = BlockChain::new();
+
+	let transaction_hash = U256::from_words(0, 0); // this tx will not exist in the blockchain db
+	
+	let tx_in = TxIn::TxPrevious {
+	    tx_hash: transaction_hash, 
+	    tx_out_index: 0,
+	    unlocking_script: Script{ops: vec![StackOp::OpDup]}, // arbitrary for this test
+	    sequence: 1234,
+	};
+	// the tx_out is arbitrary
+	let tx_out = TxOut {
+	    value: 22,
+	    locking_script: Script {ops: vec![StackOp::OpDup]},	    
+	};
+	let transaction = Transaction {
+	    version: 1,
+	    lock_time: 5,
+	    tx_ins: vec![tx_in],
+	    tx_outs: vec![tx_out],		
+	};
+
+	let result = chain.try_add_tx_to_mempool(transaction);
+	let expected = Err("referenced transaction not found");
+        assert_eq!(result, expected);
+    }
+    
     #[test]
     fn add_to_mempool_invalid_overpsend() {
 	// we attempt to add a transaction to the mempool that wants to spend as tx outputs more than the tx ins
