@@ -49,20 +49,12 @@ pub struct Script {
     pub ops: Vec<StackOp>
 }
 
-/// TODO: add the second half of this hash
+/// TODO: add the second half of this hash (ripemd160)
 pub fn hash_160_to_bytes(bytes: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     hasher.finalize().to_vec()
 
-    /*
-    let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
-    // we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
-    let mut rdr = Cursor::new(hash_vecs);
-    let hi = rdr.read_u128::<BigEndian>().unwrap();
-    let low = rdr.read_u128::<BigEndian>().unwrap();
-    U256::from_words(hi, low)
-    */
 }
 
 /// given an unlocking script and a locking script, this function executes them on a stack and
