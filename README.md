@@ -4,15 +4,15 @@ I am primarily using https://github.com/bitcoinbook/bitcoinbook and https://en.b
 This project is for me to understand the inner workings of the Bitcoin protocol and to continuing developing my Rust skills.
 
 # Currently implemented:
-Transactions (Signing and verifying)
-Script language (a subset of, at least)
-Blocks and headers (and their hashing)
-Mining/Block creation
-Simple blockchain representation as a vec of blocks.
+1. Transactions (Signing and verifying)
+2. Script language (a subset of, at least)
+3. Blocks and headers (and their hashing)
+4. Mining/Block creation
+5. Simple blockchain representation as a vec of blocks.
 
 # Todo
-Better chain representation (handle forks)
-Wallets/address creation
-Persistance/Database
-Networking (kinda important lol)
-Longest chain consensus
+1. Better chain representation (handle forks)
+2. Wallets/address creation
+3. Persistance/Database
+4. Networking (kinda important lol)
+5. Longest chain consensus
