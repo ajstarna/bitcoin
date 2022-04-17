@@ -1,5 +1,5 @@
 [package]
-name = "abam_coin"
+name = "bitcoin"
 version = "0.1.0"
 authors = ["Adam St Arnaud <ajstarna@ualberta.ca>"]
 edition = "2018"
