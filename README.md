@@ -10,8 +10,11 @@ This project is for me to understand the inner workings of the Bitcoin protocol 
 5. Simple blockchain representation as a vec of blocks.
 
 # Todo
-1. Better chain representation (handle forks)
-2. Wallets/address creation
-3. Persistance/Database
-4. Networking (kinda important lol)
-5. Longest chain consensus
+1. Better chain representation
+2. handle temporary forks
+3. mempool
+4. Wallets/address creation/submit transactions
+5. Persistance/Database
+6. Networking (kinda important lol)
+7. Longest chain consensus
+8. UI for transactions?
