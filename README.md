@@ -1,6 +1,7 @@
 Work-in-progress implementation of the Bitcoin protocol. 
 I am primarily using https://github.com/bitcoinbook/bitcoinbook and https://en.bitcoin.it/wiki/Main_Page as my sources. 
 This project is for me to understand the inner workings of the Bitcoin protocol and to continuing developing my Rust skills.
+Not sure how far I might get (I'm discovering how deep this goes hah)
 
 # Currently implemented:
 1. Transactions (Signing and verifying)
