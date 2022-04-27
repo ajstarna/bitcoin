@@ -9,13 +9,13 @@ Not sure how far I might get (I'm discovering how deep this goes hah)
 3. Blocks and headers (and their hashing)
 4. Mining/Block creation
 5. Simple blockchain representation as a vec of blocks.
+6. simple mempool with validity checking
 
 # Todo
 1. Better chain representation
 2. handle temporary forks
-3. mempool
-4. Wallets/address creation/submit transactions
-5. Persistance/Database
-6. Networking (kinda important lol)
-7. Longest chain consensus
-8. UI for transactions?
+3. Wallets/address creation/submit transactions/Client
+4. Persistance/Database
+5. Networking (kinda important lol)
+6. Longest chain consensus
+7. UI for transactions?
