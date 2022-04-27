@@ -32,7 +32,7 @@ pub enum TxIn {
 
 #[derive(Debug, Clone)]
 pub struct TxOut {
-    pub value: u32, // number of Eves 
+    pub value: u32, // number of satoshis 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
@@ -45,8 +45,6 @@ pub struct Transaction {
 }
 
 impl Transaction {
-
-
     pub fn hash_to_bytes(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
@@ -78,7 +76,6 @@ impl Transaction {
 	}
 	hasher.finalize().to_vec()
     }
-
 	
     /// hash all the bytes of the transaction
     /// TODO: is there a "nicer" way to do this rather than like depth first iterating through the whole data structure?
@@ -93,6 +90,14 @@ impl Transaction {
         U256::from_words(hi, low)
     }
 
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TransactionError {
+    InvalidScript,    
+    OverSpend,
+    CoinbaseSpend,
+    TxInNotFound,
 }
 
 #[cfg(test)]

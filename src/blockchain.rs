@@ -6,12 +6,12 @@ use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signi
 
 use crate::Hash;
 use crate::script::{Script, StackOp, execute_scripts, hash_160_to_bytes};
-use crate::transaction::{Transaction, TxOut, TxIn};
+use crate::transaction::{Transaction, TxOut, TxIn, TransactionError};
 use crate::database::{TransactionDataBase};
 use crate::block::{Block, DifficultyBits, BlockHeader, TransactionList};
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
-const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of Eves that get rewarded during the first halvening period (50 AdamCoin)
+const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of satoshis that get rewarded during the first halvening period (50 Bitcoin))
 const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // TODO: this is the "real" one --> 0x1d00ffff
 
 #[derive(Debug)]
@@ -51,40 +51,46 @@ impl BlockChain {
 
     /// if the transaction is valid (the unlocking script unlocks the locking script),
     /// then it is adding to the mempool. else ag
-    pub fn try_add_tx_to_mempool(&mut self, transaction: Transaction) -> Result<(), &'static str> {
+    pub fn try_add_tx_to_mempool(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
 	let mut tx_in_value_sum = 0; // the total value coming into this transaction from tx_ins
 	for tx_in in &transaction.tx_ins {
 	    // each tx_in must be unlocked
 	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence  } = tx_in {
-		// TODO: make sure tx_hash is in the data base
 		let transaction_prev_opt = self.transaction_database.get(&tx_hash);
-		// if None: i think return error?
 		if let Some(transaction_prev) = transaction_prev_opt {
-		    let tx_out_to_unlock = &transaction_prev.tx_outs[*tx_out_index];
+                    // first check if the script actually unlocks it
+		    let tx_out_to_unlock = &transaction_prev.tx_outs[*tx_out_index];                                        
 		    let locking_script = &tx_out_to_unlock.locking_script;
 		    let transaction_prev_hash = transaction_prev.hash_to_bytes();
 		    let is_valid = execute_scripts(&unlocking_script, locking_script, &transaction_prev_hash);
+                    if !is_valid {
+                        return Err(TransactionError::InvalidScript);
+                    }
+                    // we unlocked it, so now and add to the total much we have to spend
 		    tx_in_value_sum += tx_out_to_unlock.value;
 		} else {
-		    return Err("referenced transaction not found");
+		    return Err(TransactionError::TxInNotFound);
 		}
 		// 
 		
 	    } else {
 		// we can only take as inputs previous outputs
-		return Err("Attempt to use a coinbase as tx in!");
+		return Err(TransactionError::CoinbaseSpend);
 	    }
 	}
 
 	// mext check that the tx_out values don't sum to more than the tx_in values
 	// TODO: make this a functional one-liner
+        /*
 	let mut tx_out_value_sum = 0;
 	for tx_out in &transaction.tx_outs {
 	    tx_out_value_sum += tx_out.value;
-	}
+	}*/
 
+        let tx_out_value_sum = transaction.tx_outs.iter().fold(0, |sum, tx_out| sum + tx_out.value);
+        
 	if tx_out_value_sum > tx_in_value_sum {
-	    return Err("Attempting to spend more than available");
+	    return Err(TransactionError::OverSpend);
 	}
 
 	let miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
@@ -200,10 +206,10 @@ mod tests {
         assert_eq!(chain.height(), num_blocks);	
     }
 
-    #[test]
+    /// we attempt to add a transaction to the mempool that include a coinbase as a tx_in;
+    /// this is invalid, since only the miner gets to construct a coinbase transaction
+    #[test]    
     fn add_to_mempool_invalid_coinbase() {
-	/// we attempt to add a transaction to the mempool that include a coinbase as a tx_in;
-	/// this is invalid, since only the miner gets to construct a coinbase transaction
 	let mut chain = BlockChain::new();
 	let tx_in = TxIn::Coinbase {
 	    coinbase: 33,
@@ -222,13 +228,12 @@ mod tests {
 
 	
 	let result = chain.try_add_tx_to_mempool(transaction);
-	let expected = Err("Attempt to use a coinbase as tx in!");
-        assert_eq!(result, expected);
+        assert_eq!(result, Err(TransactionError::CoinbaseSpend));
     }
 
+    /// we attempt to add a transaction to the mempool that include a reference to a tx that does not exist    
     #[test]
     fn add_to_mempool_invalid_missing_tx() {
-	/// we attempt to add a transaction to the mempool that include a reference to a tx that does not exist
 	let mut chain = BlockChain::new();
 
 	let transaction_hash = U256::from_words(0, 0); // this tx will not exist in the blockchain db
@@ -252,8 +257,7 @@ mod tests {
 	};
 
 	let result = chain.try_add_tx_to_mempool(transaction);
-	let expected = Err("referenced transaction not found");
-        assert_eq!(result, expected);
+        assert_eq!(result, Err(TransactionError::TxInNotFound));        
     }
     
     #[test]
@@ -304,15 +308,14 @@ mod tests {
 
 	
 	let result = chain.try_add_tx_to_mempool(transaction);
-	let expected = Err("Attempting to spend more than available");	
-        assert_eq!(result, expected);
+        assert_eq!(result, Err(TransactionError::OverSpend));                
     }
 
+    /// first we must mine an empty block to have a tx_out available to spend spend
+    /// then we add to mempool a transaction that wants to spend some of the available funds
+    /// We also check that the next candidate block will take the transaction from the mempool
     #[test]
     fn add_to_mempool_valid_spend() {
-	/// first we must mine an empty block to have a tx_out available to spend spend
-	/// then we add to mempool a transaction that wants to spend some of the available funds
-	/// We also check that the next candidate block will take the transaction from the mempool
 	let mut chain = BlockChain::new();
 	let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
 	let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
