@@ -3,6 +3,8 @@ I am primarily using https://github.com/bitcoinbook/bitcoinbook and https://en.b
 This project is for me to understand the inner workings of the Bitcoin protocol and to continuing developing my Rust skills.
 Not sure how far I might get (I'm discovering how deep this goes hah)
 
+The project is a library, and there is a very minimal in progress client CLI that can be run with cargo run new, which will init a new chain and start mining.
+
 # Currently implemented:
 1. Transactions (Signing and verifying)
 2. Script language (a subset of, at least)
