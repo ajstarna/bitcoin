@@ -35,16 +35,14 @@ fn run(from_path: Option<String>, store_path: Option<String>) {
     };
 
     println!("store_path = {:?}", store_path);
-
-    let num_blocks = 4;
     let b = "adamadamadamadamadamadamadamadam".as_bytes(); // arbitrary for testing. 32 long
     let private_key: SigningKey<Secp256k1> = SigningKey::<Secp256k1>::from_bytes(&b).unwrap();
     let public_key: VerifyingKey<Secp256k1> = private_key.verifying_key();    	
-    for _ in 0..num_blocks {
+    loop {
 	let mut block = chain.construct_candidate_block(public_key);
 	block.mine();
 	chain.add_block(block);
-        chain.print_transactions();
+        //chain.print_transactions();
         println!();
     }
     
