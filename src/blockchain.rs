@@ -41,11 +41,11 @@ impl BlockChain {
     /// We make it its own method so that if/when the data structure that holds the blockchain is changed,
     /// we have a modular location to check the length
     fn is_empty(&self) -> bool {
-	self.height() == 0
+	self.len() == 0
     }
 
-    /// retusn how many block are in the chain, i.e. the height
-    fn height(&self) -> u32 {
+    /// return how many block are in the chain, i.e. the height
+    fn len(&self) -> u32 {
 	self.blocks.len() as u32
     }
 
@@ -80,13 +80,6 @@ impl BlockChain {
 	}
 
 	// mext check that the tx_out values don't sum to more than the tx_in values
-	// TODO: make this a functional one-liner
-        /*
-	let mut tx_out_value_sum = 0;
-	for tx_out in &transaction.tx_outs {
-	    tx_out_value_sum += tx_out.value;
-	}*/
-
         let tx_out_value_sum = transaction.tx_outs.iter().fold(0, |sum, tx_out| sum + tx_out.value);
         
 	if tx_out_value_sum > tx_in_value_sum {
@@ -100,22 +93,24 @@ impl BlockChain {
     }
     
     fn determine_coinbase_reward(&self) -> u32 {
-	let num_halvenings = self.height() / BLOCK_HALVENING;
+	let num_halvenings = self.len() / BLOCK_HALVENING;
 	let coinbase = ORIGINAL_COINBASE / (2 as u32).pow(num_halvenings);
 	coinbase
     }
 
     fn construct_coinbase_transaction(&self, recipient: VerifyingKey<Secp256k1>) -> Transaction {
 	let tx_in = TxIn::Coinbase {
-	    coinbase: self.height(), // the coinbase field is sorta arbitrary, but adding the height here makes sure there won't be duplicate hashes of coinbase transactions,
+	    coinbase: self.len(), // the coinbase field is sorta arbitrary, but adding the height here makes sure there won't be duplicate hashes of coinbase transactions,
 	    sequence: 5580,
 	};
 	let reward = self.determine_coinbase_reward();
 
 	// the locking script is the classic pay to public key of recipient.
+        // TODO: make a function that gives us this script from the recipient        
 	let public_key_bytes = recipient.to_encoded_point(true).to_bytes();
 	let pub_hash = hash_160_to_bytes(&public_key_bytes);
-	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqVerify, StackOp::OpCheckSig]};	
+	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqVerify, StackOp::OpCheckSig]};
+        
 	let tx_out = TxOut {
 	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
 	    locking_script: locking_script,
@@ -129,10 +124,11 @@ impl BlockChain {
     }
         
     /// given a new block, add it to the blockchain
-    /// TODO: we should validate the block here or no?
+    /// TODO: we should validate the block here or no? (yes, since the mined block could/would come from someone else)
     pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
 	self.transaction_database.read_blocks(&self.blocks);
+        println!("added a block; current len = {:?}", self.len());        
     }
 
     /// given the recipient of the coinbase transaction, we construct and return a list of transactions to include in the
@@ -180,7 +176,10 @@ impl BlockChain {
 	    transaction_list: transaction_list,
 	}
     }
-    
+
+    pub fn print_transactions(&self) {
+        println!("{:?}", self.transaction_database);
+    }
 }
 
 
@@ -203,7 +202,7 @@ mod tests {
 	    chain.add_block(block);
 	}
 	
-        assert_eq!(chain.height(), num_blocks);	
+        assert_eq!(chain.len(), num_blocks);	
     }
 
     /// we attempt to add a transaction to the mempool that include a coinbase as a tx_in;

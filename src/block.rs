@@ -143,7 +143,7 @@ impl Block {
 	    nonce += 1;
 	}
 	//println!("Difficulty target = {:?}", difficulty_target);
-	println!("Difficulty target bytes = {:?}", difficulty_target.to_be_bytes());	
+	//println!("Difficulty target bytes = {:?}", difficulty_target.to_be_bytes());	
 	
     }
 

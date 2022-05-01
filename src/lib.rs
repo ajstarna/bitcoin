@@ -3,7 +3,7 @@ use ethnum::U256;
 mod transaction;
 mod script;
 mod block;
-mod blockchain;
+pub mod blockchain;
 mod database;
 
 
