@@ -18,8 +18,7 @@ pub struct TransactionDataBase {
 
 impl TransactionDataBase {
     pub fn new() -> Self {
-	// TODO: can i use Self on the next line?
-	TransactionDataBase {
+	Self {
 	    transactions_by_hash :HashMap::new(),
 	    num_blocks_analyzed: 0
 	}
@@ -29,7 +28,7 @@ impl TransactionDataBase {
 	self.transactions_by_hash.get(entry)
     }
 	
-    /// given a blockchain, we reads blocks that we have not already read yet, and include the
+    /// given a blockchain, we read blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
     pub fn read_blocks(&mut self, blocks: &Vec<Block>) {
 	// TODO: impl iterator for blockchain struct itself?

@@ -74,7 +74,7 @@ impl BlockChain {
 		// 
 		
 	    } else {
-		// we can only take as inputs previous outputs
+		// we can only take as inputs previous outputs. Only a miner may receive a coinbase reward.
 		return Err(TransactionError::CoinbaseSpend);
 	    }
 	}
@@ -139,14 +139,13 @@ impl BlockChain {
 	let mut transaction_list = TransactionList::new(vec![transaction]);
 	if !self.is_empty() {
 	    // if is_empty()< 1 (i.e. this is the genesis block), then do not go to the mempool
-	    while self.mempool.len() > 0 {
+	    while self.mempool.len() > 0 && transaction_list.len() < self.max_transactions_per_block{
 		let transaction = self.mempool.pop_front().unwrap(); // we already checked for len > 0, so can unwrap
 		transaction_list.push(transaction);
 	    }
 	}
 	transaction_list
     }
-
 
     /// get the hash of the block header of the previous block in the chain
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
@@ -158,7 +157,10 @@ impl BlockChain {
 	    previous_block.block_header.hash()
 	}
     }
-    
+
+    /// given the recipient of the coinbase reward, this method constructs a list of transactions from the mempool and returns a Block
+    /// with the nonce value of the header initialized to None and pointing at the most recent block in the chain.
+    /// The block can now be mined but adjusting the nonce and hashing
     pub fn construct_candidate_block(&mut self, recipient: VerifyingKey<Secp256k1>) -> Block {
 	let transaction_list = self.construct_transaction_list(recipient);
 	let previous_block_hash = self.get_previous_block_hash();

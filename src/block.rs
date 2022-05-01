@@ -103,7 +103,8 @@ impl TransactionList {
     pub fn push(&mut self, transaction: Transaction) {
 	self.transactions.push(transaction);
     }
-    
+
+    // TODO: implement
     pub fn get_merkle_root(&self) -> Hash {
 	U256::ZERO
     }
