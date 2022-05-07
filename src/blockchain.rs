@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use ethnum::U256;
 use std::collections::VecDeque;
 use k256::{Secp256k1};
@@ -14,7 +15,7 @@ const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block rewar
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of satoshis that get rewarded during the first halvening period (50 Bitcoin))
 const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // TODO: this is the "real" one --> 0x1d00ffff
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BlockChain {
     pub blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,

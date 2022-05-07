@@ -27,16 +27,13 @@ pub enum TxIn {
     }
 }
 
-
-
-
 #[derive(Debug, Clone)]
 pub struct TxOut {
     pub value: u32, // number of satoshis 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
     pub version: u32,
     pub lock_time: u32,

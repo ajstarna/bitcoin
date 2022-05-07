@@ -10,7 +10,7 @@ use crate::blockchain::{BlockChain};
 
 /// This struct holds a mapping from transaction hash to the transaction for all exisitng blocks
 /// It also keeps a record of how many blocks it has seen so far
-#[derive(Debug )]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionDataBase {
     transactions_by_hash: HashMap<Hash, Transaction>,
     num_blocks_analyzed: u32,

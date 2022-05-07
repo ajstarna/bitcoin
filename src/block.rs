@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 use ethnum::U256;
 
@@ -17,7 +18,7 @@ use crate::transaction::{Transaction};
 /// Note that this packed format contains a sign bit in the 24th bit, and for example the negation of the above target would be 0x1b8404cb in packed format.
 /// Since targets are never negative in practice, however, this means the largest legal value for the lower 24 bits is 0x7fffff.
 /// Additionally, 0x008000 is the smallest legal value for the lower 24 bits since targets are always stored with the lowest possible exponent
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DifficultyBits (pub u32);
 
 impl DifficultyBits {
@@ -44,7 +45,7 @@ impl DifficultyBits {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
@@ -114,14 +115,13 @@ impl TransactionList {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Block {
     pub block_size: u32,
     pub block_header: BlockHeader,
     pub transaction_count: u32,
     pub transaction_list: TransactionList,
 }
-
 
 impl Block {
     /// We try multiple nonce values, each time hashing the block header wtih Sha256,
