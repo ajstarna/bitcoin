@@ -1,22 +1,25 @@
+use serde::{Serialize, Deserialize};
 //use ecdsa::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
 use k256::{Secp256k1};
-use ethnum::U256;
+//use ethnum::U256;
 //use elliptic_curve::sec1::{EncodedPoint};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::script::{Script, StackOp};
-use crate::Hash;
+use crate::{Hash, HashDef};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
     TxPrevious {
+        #[serde(with = "HashDef")]        
 	tx_hash: Hash, // Hash of the transaction that we are getting this input from
+        
 	tx_out_index: usize,// The index of the tx_out within the transaction
 	unlocking_script: Script, // AKA: ScriptSig, but lets follow Mastering Bitcoin's convention
 	sequence: u32, // TODO: what is this haha
@@ -27,7 +30,7 @@ pub enum TxIn {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TxOut {
     pub value: u32, // number of satoshis 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
@@ -84,7 +87,7 @@ impl Transaction {
 	let mut rdr = Cursor::new(hash_vecs);
 	let hi = rdr.read_u128::<BigEndian>().unwrap();
 	let low = rdr.read_u128::<BigEndian>().unwrap();
-        U256::from_words(hi, low)
+        Hash::from_words(hi, low)
     }
 
 }
@@ -144,6 +147,6 @@ mod tests {
 	// change to StackOp enum or something? interesting
 	// Note2: after changing a type from u32 to usize i think it changed again too lol
 	let hash = transaction.hash();
-	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
+	assert_eq!(hash, Hash::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }
 }

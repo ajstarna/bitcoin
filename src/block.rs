@@ -6,7 +6,7 @@ use std::time::{SystemTime};
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
-use crate::Hash;
+use crate::{Hash, HashDef};
 use crate::transaction::{Transaction};
 
 /// This notation expresses the Proof-of-Work target as a coefficient/exponent format,
@@ -48,8 +48,13 @@ impl DifficultyBits {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHeader {
     version: u32, // 4 bytes: A version number to track software/protocol upgrades
+    
+    #[serde(with = "HashDef")]
     previous_block_hash: Hash, // 32 bytes: A reference to the hash of the previous (parent) block in the chain
+    
+    #[serde(with = "HashDef")]
     merkle_root: Hash, // 32 bytes: A hash of the root of the merkle tree of this block’s transactions
+    
     time_stamp: u64, // 4  (8 is ok?) bytes: The approximate creation time of this block (in seconds elapsed since Unix Epoch)
     difficulty_bits: DifficultyBits, // 4 bytes: The Proof-of-Work algorithm difficulty target for this block
     nonce: Option<u32>, // 4 bytes: A counter used for the Proof-of-Work algorithm
@@ -91,7 +96,7 @@ impl BlockHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionList {
     pub transactions: Vec<Transaction>,    
 }

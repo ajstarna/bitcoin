@@ -43,8 +43,7 @@ impl StackOp {
 /// the requirment for ownership of the utxo
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
-#[derive(Debug, Clone)]
-//#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
