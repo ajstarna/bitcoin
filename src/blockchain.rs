@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-use ethnum::U256;
 use std::collections::VecDeque;
 use k256::{Secp256k1};
 use ecdsa::{SigningKey, VerifyingKey};
@@ -152,7 +151,7 @@ impl BlockChain {
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
     fn get_previous_block_hash(&self) -> Hash {
 	if self.is_empty() {
-	    U256::ZERO
+	    Hash::zero()
 	} else {
 	    let previous_block = self.blocks.last().unwrap();
 	    previous_block.block_header.hash()

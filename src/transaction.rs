@@ -9,7 +9,7 @@ use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::script::{Script, StackOp};
-use crate::{Hash, HashDef};
+use crate::{Hash};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,9 +17,7 @@ pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
     TxPrevious {
-        #[serde(with = "HashDef")]        
 	tx_hash: Hash, // Hash of the transaction that we are getting this input from
-        
 	tx_out_index: usize,// The index of the tx_out within the transaction
 	unlocking_script: Script, // AKA: ScriptSig, but lets follow Mastering Bitcoin's convention
 	sequence: u32, // TODO: what is this haha
@@ -53,9 +51,7 @@ impl Transaction {
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
-		    let (hi, low) = tx_hash.into_words();
-		    hasher.update(hi.to_be_bytes());
-		    hasher.update(low.to_be_bytes());
+		    hasher.update(tx_hash.to_fixed_bytes());
 		    hasher.update(tx_out_index.to_be_bytes());
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
@@ -82,12 +78,8 @@ impl Transaction {
     /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?x	
     pub fn hash(&self) -> Hash {
 	//let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
-	let hash_vecs: Vec<u8> = self.hash_to_bytes();
-	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
-	let mut rdr = Cursor::new(hash_vecs);
-	let hi = rdr.read_u128::<BigEndian>().unwrap();
-	let low = rdr.read_u128::<BigEndian>().unwrap();
-        Hash::from_words(hi, low)
+	let hash_vec: Vec<u8> = self.hash_to_bytes();
+        Hash::from_slice(&hash_vec)
     }
 
 }

@@ -5,7 +5,6 @@ use sha2::{Sha256, Digest};
 use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
 
 use elliptic_curve::sec1::{EncodedPoint};
-use ethnum::U256;
 use bincode;
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};

@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-use serde_with::{serde_as}; // needed for a hashmap of a remote type
 use std::collections::HashMap;
 
 use ecdsa::{SigningKey, VerifyingKey};
@@ -7,15 +6,13 @@ use k256::{Secp256k1};
 
 use crate::transaction::{Transaction, TxOut};
 use crate::block::{Block};
-use crate::{Hash, HashDef};
+use crate::{Hash};
 use crate::blockchain::{BlockChain};
 
 /// This struct holds a mapping from transaction hash to the transaction for all exisitng blocks
 /// It also keeps a record of how many blocks it has seen so far
-#[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionDataBase {
-    #[serde_as(as = "HashMap<HashDef, Transaction>")]    
     transactions_by_hash: HashMap<Hash, Transaction>,
     num_blocks_analyzed: u32,
 }
