@@ -4,8 +4,10 @@ This project is for me to understand the inner workings of the Bitcoin protocol 
 Not sure how far I might get (I'm discovering how deep this goes hah)
 
 The project is a library, and there is a very minimal in progress client CLI that can be run with:
+```
     - cargo run new [save_path], which will construct a new chain from scratch and save it to the optional save_path
     - cargo run from from_path [save_path], which will load the chain from from_path and continue to add to it and save it to the optional save_path
+```
 
 # Currently implemented:
 1. Transactions (Signing and verifying)
