@@ -1,5 +1,4 @@
-use serde::{Serialize, Deserialize};
-use ethereum_types::H256;
+use ethereum_types::U256;
 
 mod transaction;
 mod script;
@@ -7,6 +6,4 @@ mod block;
 pub mod blockchain;
 mod database;
 
-pub type Hash = H256;
-
-
+pub type Hash = U256;

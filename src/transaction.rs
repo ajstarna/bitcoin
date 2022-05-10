@@ -1,9 +1,7 @@
 use serde::{Serialize, Deserialize};
 //use ecdsa::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
-use k256::{Secp256k1};
-//use ethnum::U256;
-//use elliptic_curve::sec1::{EncodedPoint};
+//use k256::{Secp256k1};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -51,7 +49,9 @@ impl Transaction {
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
-		    hasher.update(tx_hash.to_fixed_bytes());
+                    for i in 0..4 {
+		        hasher.update(tx_hash.0[i].to_be_bytes());
+                    }
 		    hasher.update(tx_out_index.to_be_bytes());
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
@@ -79,7 +79,7 @@ impl Transaction {
     pub fn hash(&self) -> Hash {
 	//let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
 	let hash_vec: Vec<u8> = self.hash_to_bytes();
-        Hash::from_slice(&hash_vec)
+        Hash::from(&hash_vec[..])
     }
 
 }
@@ -139,6 +139,7 @@ mod tests {
 	// change to StackOp enum or something? interesting
 	// Note2: after changing a type from u32 to usize i think it changed again too lol
 	let hash = transaction.hash();
-	assert_eq!(hash, Hash::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
+        // TODO: fix
+	assert_eq!(hash, Hash::zero()); //Hash::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
     }
 }

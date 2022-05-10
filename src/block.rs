@@ -1,9 +1,8 @@
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
-use ethereum_types::H256;
+use ethereum_types::U256;
 
 use std::time::{SystemTime};
-use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::{Hash};
@@ -24,19 +23,19 @@ pub struct DifficultyBits (pub u32);
 impl DifficultyBits {
     /// Convert the exponent representation into a vector of bytes that represents the actual number
     /// This can then be compared against a candidate block header hash to see if it fits the proof of work
-    pub fn to_h256(&self) -> H256 {
+    pub fn to_u256(&self) -> U256 {
 
 	let exponent: u32 = ((self.0 >> 24) & 0xFF ).into(); // get the first byte. TODO: is the mask required?
-	let base: u64 = (self.0 & 0xFFFFFF).into(); // next three bytes represent the base
+	let base: U256 = (self.0 & 0xFFFFFF).into(); // next three bytes represent the base
 	//vec![0, 10, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-	let full_exponent: u32 = 8 * (exponent -  3);
+	let full_exponent: U256 = U256::from(8 * (exponent -  3));
 	//println!("full_exponent = {:?}", full_exponent);
-	assert!(full_exponent < 255); // we can't be too big
+	assert!(full_exponent < U256::from(255)); // we can't be too big
 	// TODO: the checked_pow() meethod didn't seem to return None when there was overflow hmmm
-	let rhs: u64 = 2_u32.pow(full_exponent).into();
+	let rhs: U256 = (U256::from(2_u64)).pow(full_exponent).into();
 	//println!("rhs = {:?}", rhs);	
-	let difficulty_target = H256::from_low_u64_be(base * rhs);
+	let difficulty_target = base * rhs;
 	difficulty_target
 	// U256::from_words(0x01_05_00_00_00_00_00_00_00_00_00_00_00_00_00_00, 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00)
     }
@@ -68,15 +67,21 @@ impl BlockHeader {
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(self.version.to_be_bytes());
-	hasher.update(self.previous_block_hash.to_fixed_bytes());
-	hasher.update(self.merkle_root.to_fixed_bytes());        
+        for i in 0..4 {
+            // iterate over the 4 constituent u64
+	    hasher.update(self.previous_block_hash.0[i].to_be_bytes());
+        }
+        for i in 0..4 {
+            // iterate over the 4 constituent u64            
+	    hasher.update(self.merkle_root.0[i].to_be_bytes());
+        }
         hasher.update(self.time_stamp.to_be_bytes());
         hasher.update(self.difficulty_bits.0.to_be_bytes());
 	if let Some(nonce) = self.nonce {
             hasher.update(nonce.to_be_bytes());	    
 	}
 	let hash_vec: Vec<u8> = hasher.finalize().to_vec();
-        H256::from_slice(&hash_vec)
+        Hash::from(&hash_vec[..])
     }
 }
 
@@ -117,7 +122,7 @@ impl Block {
     /// once we have found a hash that satisfies the difficulty requirment,
     /// we return with self.block_header.nonce set to the appropriate value
     pub fn mine(&mut self)  {
-	let difficulty_target = self.block_header.difficulty_bits.to_h256(); // what we will compare our hashes against
+	let difficulty_target = self.block_header.difficulty_bits.to_u256(); // what we will compare our hashes against
 	let mut nonce: u32 = 0;
 	loop {
 	    self.block_header.nonce = Some(nonce);
@@ -127,7 +132,7 @@ impl Block {
 	    if struct_hash <= difficulty_target {	    
 		// we have found a difficult enough hash value, so we are done
 		println!("Found a valid nonce {:?} for proof of work!", nonce);
-		println!("hash as bytes = {:?}", struct_hash.to_fixed_bytes());		
+		println!("hash = {:?}", struct_hash);		
 		break;
 	    }
 	    nonce += 1;
@@ -149,9 +154,12 @@ mod tests {
     fn target_repr_to_u256() {
 	let difficulty_bits = DifficultyBits(0x1903a30c);
 	let difficulty_target = difficulty_bits.to_u256();
-	let answer_hi: u128 = 0x00_00_00_00_00_00_00_03_A3_0C_00_00_00_00_00_00;
-	let answer_low: u128 = 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
-	let answer = U256::from_words(answer_hi, answer_low);
+	let hash_bytes: [u8; 32] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xA3, 0x0C, 0x00, 0x00, 0x00, 0x00,
+                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+
+	//let answer_hi: u128 = 0x00_00_00_00_00_00_00_03_A3_0C_00_00_00_00_00_00;
+	//let answer_low: u128 = 0x00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
+        let answer = Hash::from(&hash_bytes);
 	assert_eq!(difficulty_target, answer);
     }
 }
