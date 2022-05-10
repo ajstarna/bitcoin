@@ -3,6 +3,9 @@ use ecdsa::{SigningKey, VerifyingKey};
 use std::sync::atomic::{AtomicBool, Ordering};
 use ctrlc;
 use std::sync::Arc;
+use std::error;
+use std::fs::File;
+use std::io::{BufReader, Write};
 
 use serde::{Serialize, Deserialize};
 
@@ -31,11 +34,15 @@ enum Commands {
 }
 
 
-fn run(from_path: Option<String>, save_path: Option<String>) {
+fn run(from_path: Option<String>, save_path: Option<String>) -> Result<(), Box<dyn error::Error>>{
     let mut chain = if let Some(path) = from_path {
         println!("load the existing chain from {:?}", path);
         // TODO from_path method
-        BlockChain::new()        
+        let file = File::open(path)?;
+        println!("file = {:?}", file);
+        let reader = BufReader::new(file);
+        // Read the JSON contents of the file as an Blockchain`.
+        serde_json::from_reader(reader)?
     } else {
         println!("init a new chain");
         BlockChain::new()       
@@ -62,25 +69,29 @@ fn run(from_path: Option<String>, save_path: Option<String>) {
     }
 
     if let Some(path) = save_path {
-        // todo: save the chain into the path
+        println!("saving chain to {:?}", path);
         let serialized = serde_json::to_string(&chain).unwrap();
-        println!("chain:");
-        println!("{:?}", chain);
-        chain.print_transactions();
+        //println!("chain:");
+        //println!("{:?}", chain);
+        //chain.print_transactions();
+        //println!("serialized = {:?}", serialized);
+        let mut file = File::create(path)?;
+        write!(file, "{}", serialized)?;
     }
-    
+    Ok(())
 }
 
 fn main() {
     let cli = Cli::parse();
-    match cli.command {
+    let result = match cli.command {
         Commands::New { save_path } => {
 
-            run(None, save_path);
+            run(None, save_path)
 
         }
         Commands::From {from_path, save_path } => {
-            run(Some(from_path), save_path);            
+            run(Some(from_path), save_path)
         }
-    }
+    };
+    println!("Result = {:?}", result);
 }
