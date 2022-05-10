@@ -5,13 +5,7 @@ use sha2::{Sha256, Digest};
 use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
 
 use elliptic_curve::sec1::{EncodedPoint};
-use ethnum::U256;
 use bincode;
-use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt};
-
-
-use crate::Hash;
 
 /// enum to hold the various Script operations and their associated values
 /// we derive Serialize and Deserialize so that we can turn the StackOp into bytes during hashing
@@ -31,7 +25,6 @@ pub enum StackOp {
     OpEqVerify, // combine OpEq and OpVerify in one go.
 }
 
-
 impl StackOp {
     pub fn to_be_bytes(&self) -> Vec<u8> {
 	let encoded: Vec<u8> = bincode::serialize(self).unwrap();
@@ -43,8 +36,7 @@ impl StackOp {
 /// the requirment for ownership of the utxo
 /// the locking script formally describes the conditions needed to spend a given UTXO,
 /// Usually requiring a signature from a specific address
-#[derive(Debug, Clone)]
-//#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Script {
     pub ops: Vec<StackOp>
 }
@@ -167,8 +159,8 @@ pub fn execute_scripts(unlocking_script: &Script, locking_script: &Script, tx_pr
 				let signature: ecdsa::Signature<Secp256k1> = Signature::from_bytes(bytes_sig).expect("problem deserializing signature");
 				// the "message" that was signed was the transaction of the previous hash that
 				// led to the locking script that we are currently trying to unlock.
-				let verified = public_key.verify(tx_previous_hash, &signature);
-				if let Ok(verified) = verified {
+				let verified_res = public_key.verify(tx_previous_hash, &signature);
+				if let Ok(_) = verified_res {
 				    stack.push(StackOp::Bool(true));
 				} else {
 				    stack.push(StackOp::Bool(false));				    

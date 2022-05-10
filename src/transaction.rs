@@ -1,17 +1,16 @@
+use serde::{Serialize, Deserialize};
 //use ecdsa::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
-use k256::{Secp256k1};
-use ethnum::U256;
-//use elliptic_curve::sec1::{EncodedPoint};
+//use k256::{Secp256k1};
 
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::script::{Script, StackOp};
-use crate::Hash;
+use crate::{Hash};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TxIn {
     // A transaction input can either come from a previous transaction output,
     // or if it is part of a block reward, then can be a coinbase
@@ -27,7 +26,7 @@ pub enum TxIn {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TxOut {
     pub value: u32, // number of satoshis 
     pub locking_script: Script, // AKA: ScriptPubKey, but following Master Bitcoin's convention
@@ -50,9 +49,9 @@ impl Transaction {
 	for tx_in in &self.tx_ins {
 	    match tx_in {
 		TxIn::TxPrevious{tx_hash, tx_out_index, unlocking_script, sequence} => {
-		    let (hi, low) = tx_hash.into_words();
-		    hasher.update(hi.to_be_bytes());
-		    hasher.update(low.to_be_bytes());
+                    for i in 0..4 {
+		        hasher.update(tx_hash.0[i].to_be_bytes());
+                    }
 		    hasher.update(tx_out_index.to_be_bytes());
 		    for op in &unlocking_script.ops {
 			hasher.update(op.to_be_bytes());
@@ -79,12 +78,8 @@ impl Transaction {
     /// TODO: could we use serde to turn into bytes then simply hash that? is serde deterministic?x	
     pub fn hash(&self) -> Hash {
 	//let hash_vecs: Vec<u8> = hasher.finalize().to_vec();
-	let hash_vecs: Vec<u8> = self.hash_to_bytes();
-	// we use a Cursor to read a Vec<u8> into two u128s, then store them inside a U256
-	let mut rdr = Cursor::new(hash_vecs);
-	let hi = rdr.read_u128::<BigEndian>().unwrap();
-	let low = rdr.read_u128::<BigEndian>().unwrap();
-        U256::from_words(hi, low)
+	let hash_vec: Vec<u8> = self.hash_to_bytes();
+        Hash::from(&hash_vec[..])
     }
 
 }
@@ -136,14 +131,13 @@ mod tests {
 
 	// note: this is simply the hash that comes out when i presently run it.
 	// This will at least show if something changes unexpectedly in the future
-	// 9867146778677399561412053178184496996625184432557161352426664471158288654564 decimal
-	// 15D09B6F36496CB1D7693954A23078B60AAD40F539D3503C52A314892AB1A0E4 hex
-
-
-	// Note: adter working on the code more (and the script/stack stuff in particular). This now fails hmm
-	// change to StackOp enum or something? interesting
-	// Note2: after changing a type from u32 to usize i think it changed again too lol
+	// 34955240534511464281001754460162170822162357866488741313605570467957795050853 decimal
+	// 4D47F70BE4C85658925EC886B1C362EBDBC96D9E41F1DC55520169815A11D565 hex
+        // Note: this has changed multiple times as i impliment, so is it even a good test..?
 	let hash = transaction.hash();
-	assert_eq!(hash, U256::from_words(28996938242674037981331829445228525750_u128, 14191864817386241420276944889147662564_u128));
+        println!("hash = {:?}", hash);
+        let answer = Hash::from([0x4D, 0x47, 0xF7, 0x0B, 0xE4, 0xC8, 0x56, 0x58, 0x92, 0x5E, 0xC8, 0x86, 0xB1, 0xC3, 0x62, 0xEB, 0xDB,
+                                 0xC9, 0x6D, 0x9E, 0x41, 0xF1, 0xDC, 0x55, 0x52, 0x01, 0x69, 0x81, 0x5A, 0x11, 0xD5, 0x65]);
+	assert_eq!(hash, answer);
     }
 }

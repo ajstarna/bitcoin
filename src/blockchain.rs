@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-use ethnum::U256;
 use std::collections::VecDeque;
 use k256::{Secp256k1};
 use ecdsa::{SigningKey, VerifyingKey};
@@ -87,7 +86,7 @@ impl BlockChain {
 	    return Err(TransactionError::OverSpend);
 	}
 
-	let miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
+	let _miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
 
 	self.mempool.push_back(transaction);
 	Ok(())
@@ -152,7 +151,7 @@ impl BlockChain {
     /// if the blockchain is empty, i.e. we are spawning the genesis block, then the previous hash is simply 0
     fn get_previous_block_hash(&self) -> Hash {
 	if self.is_empty() {
-	    U256::ZERO
+	    Hash::zero()
 	} else {
 	    let previous_block = self.blocks.last().unwrap();
 	    previous_block.block_header.hash()
@@ -238,7 +237,7 @@ mod tests {
     fn add_to_mempool_invalid_missing_tx() {
 	let mut chain = BlockChain::new();
 
-	let transaction_hash = U256::from_words(0, 0); // this tx will not exist in the blockchain db
+	let transaction_hash = Hash::zero(); // this tx will not exist in the blockchain db
 	
 	let tx_in = TxIn::TxPrevious {
 	    tx_hash: transaction_hash, 
@@ -280,12 +279,14 @@ mod tests {
 	// A wallet would need to look it up by recipient public key or something like that
 	// decimal: 38321321692519566122529587483305535719886798403229990577862410369545149044829
 	// hex: 54B919753E5FC47F98A0574A2F5D5679726EAB8349DD943622C2DE14A497585D
-	let hi: u128 = 0x54_B9_19_75_3E_5F_C4_7F_98_A0_57_4A_2F_5D_56_79;
-	let low: u128 = 0x72_6E_AB_83_49_DD_94_36_22_C2_DE_14_A4_97_58_5D;
-	let transaction_hash = U256::from_words(hi, low);
-	let tx_hash_bytes = transaction_hash.to_be_bytes();
+	//let hi: u128 = 0x54_B9_19_75_3E_5F_C4_7F_98_A0_57_4A_2F_5D_56_79;
+	//let low: u128 = 0x72_6E_AB_83_49_DD_94_36_22_C2_DE_14_A4_97_58_5D;
+        let hash_bytes: [u8; 32] = [0x54, 0xB9, 0x19, 0x75, 0x3E, 0x5F, 0xC4, 0x7F, 0x98, 0xA0, 0x57, 0x4A, 0x2F, 0x5D, 0x56, 0x79,
+                                    0x72, 0x6E, 0xAB, 0x83, 0x49, 0xDD, 0x94, 0x36, 0x22, 0xC2, 0xDE, 0x14, 0xA4, 0x97, 0x58, 0x5D];
+	let transaction_hash = Hash::from(&hash_bytes);
+	//let tx_hash_bytes = transaction_hash.to_be_bytes();
 	
-	let sig = private_key.try_sign(&tx_hash_bytes).expect("should be able to sign the transaction hash here");
+	let sig = private_key.try_sign(&hash_bytes).expect("should be able to sign the transaction hash here");
 	let sig_as_bytes = sig.as_bytes().to_vec(); //TODO: is there a way to go right from &[u8] --> Box instead of through vec?
 	let unlocking_script = Script {ops: vec![StackOp::Bytes(sig_as_bytes.into_boxed_slice()), StackOp::Bytes(public_key_bytes)]};
 
@@ -332,12 +333,12 @@ mod tests {
 	// A wallet would need to look it up by recipient public key or something like that
 	// decimal: 38321321692519566122529587483305535719886798403229990577862410369545149044829
 	// hex: 54B919753E5FC47F98A0574A2F5D5679726EAB8349DD943622C2DE14A497585D
-	let hi: u128 = 0x54_B9_19_75_3E_5F_C4_7F_98_A0_57_4A_2F_5D_56_79;
-	let low: u128 = 0x72_6E_AB_83_49_DD_94_36_22_C2_DE_14_A4_97_58_5D;
-	let transaction_hash = U256::from_words(hi, low);
-	let tx_hash_bytes = transaction_hash.to_be_bytes();
+        let hash_bytes: [u8; 32] = [0x54, 0xB9, 0x19, 0x75, 0x3E, 0x5F, 0xC4, 0x7F, 0x98, 0xA0, 0x57, 0x4A, 0x2F, 0x5D, 0x56, 0x79,
+                                    0x72, 0x6E, 0xAB, 0x83, 0x49, 0xDD, 0x94, 0x36, 0x22, 0xC2, 0xDE, 0x14, 0xA4, 0x97, 0x58, 0x5D];
+	let transaction_hash = Hash::from(&hash_bytes);
+	//let tx_hash_bytes = transaction_hash.to_be_bytes();
 	
-	let sig = private_key.try_sign(&tx_hash_bytes).expect("should be able to sign the transaction hash here");
+	let sig = private_key.try_sign(&hash_bytes).expect("should be able to sign the transaction hash here");
 	let sig_as_bytes = sig.as_bytes().to_vec(); //TODO: is there a way to go right from &[u8] --> Box instead of through vec?
 	let unlocking_script = Script {ops: vec![StackOp::Bytes(sig_as_bytes.into_boxed_slice()), StackOp::Bytes(public_key_bytes)]};
 
