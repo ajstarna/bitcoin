@@ -19,7 +19,8 @@ The project is a library, and there is a very minimal in progress client CLI tha
 7. Chain persistance on disk saved as a json representation using serde
 
 # Todo
-1. Wallets/address; creation/submit transactions to mempool
-2. Networking between nodes
-3. Better chain representation/handle temporary forks
-4. Longest chain consensus
+1. Merkle roots
+2. Wallets/address; creation/submit transactions to mempool
+3. Networking between nodes
+4. Better chain representation/handle temporary forks
+5. Longest chain consensus
