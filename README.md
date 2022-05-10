@@ -24,3 +24,4 @@ The project is a library, and there is a very minimal in progress client CLI tha
 3. Networking between nodes
 4. Better chain representation/handle temporary forks
 5. Longest chain consensus
+6. set up some github actions
