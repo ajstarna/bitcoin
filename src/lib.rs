@@ -5,5 +5,6 @@ mod script;
 mod block;
 pub mod blockchain;
 mod database;
+mod merkle;
 
 pub type Hash = U256;

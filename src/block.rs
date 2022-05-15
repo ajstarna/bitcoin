@@ -3,7 +3,6 @@ use sha2::{Sha256, Digest};
 use ethereum_types::U256;
 
 use std::time::{SystemTime};
-use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::{Hash};
 use crate::transaction::{Transaction};
@@ -85,6 +84,7 @@ impl BlockHeader {
     }
 }
 
+/*
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionList {
     pub transactions: Vec<Transaction>,    
@@ -108,13 +108,13 @@ impl TransactionList {
 	self.transactions.len() as u32
     }
 }
-
+*/
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Block {
     pub block_size: u32,
     pub block_header: BlockHeader,
     pub transaction_count: u32,
-    pub transaction_list: TransactionList,
+    pub transaction_list: Vec<Transaction>,
 }
 
 impl Block {

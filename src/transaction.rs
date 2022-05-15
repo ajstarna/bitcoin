@@ -3,10 +3,7 @@ use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 //use k256::{Secp256k1};
 
-use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt};
-
-use crate::script::{Script, StackOp};
+use crate::script::{Script};
 use crate::{Hash};
 
 

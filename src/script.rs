@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
-use ecdsa::{SigningKey, VerifyingKey};
+use ecdsa::{VerifyingKey};
 use k256::{Secp256k1};
 use sha2::{Sha256, Digest};
-use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
+use ecdsa::signature::{
+    Verifier, Signature}; // trait in scope for signing a message
 
 use elliptic_curve::sec1::{EncodedPoint};
 use bincode;
@@ -229,6 +230,8 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use crate::transaction::{Transaction, TxIn, TxOut};
+    use ecdsa::{SigningKey};
+    use ecdsa::signature::{Signer}; // trait in scope for signing a message
     
     #[test]    
     fn test_valid_simple_equal() {

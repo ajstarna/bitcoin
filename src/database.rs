@@ -1,11 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-
-use ecdsa::{SigningKey, VerifyingKey};
-use k256::{Secp256k1};
-
-use crate::transaction::{Transaction, TxOut};
-use crate::block::{Block};
+use crate::transaction::{Transaction};
 use crate::{Hash};
 use crate::blockchain::{BlockChain};
 
@@ -31,10 +26,10 @@ impl TransactionDataBase {
 	
     /// given a blockchain, we read blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
-    pub fn read_blocks(&mut self, blocks: &Vec<Block>) {
+    pub fn read_blocks(&mut self, chain: &BlockChain) { //blocks: &Vec<Block>) {
 	// TODO: impl iterator for blockchain struct itself?
-	for block in blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
-	    for transaction in &block.transaction_list.transactions {
+	for block in chain.blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
+	    for transaction in &block.transaction_list {
 		println!("transaction = {:?}", transaction);
 		let transaction_hash = transaction.hash();
 		println!("transaction_hash = {:?}", transaction_hash);
@@ -55,8 +50,9 @@ struct BlockHeaderDataBase {}
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use ecdsa::{SigningKey, VerifyingKey};
+    use k256::{Secp256k1};
 
     #[test]
     fn test_read_blocks() {
@@ -74,7 +70,7 @@ mod tests {
 	}
 
 	let mut database = TransactionDataBase::new();
-	database.read_blocks(&chain.blocks);
+	database.read_blocks(&chain);
 	assert_eq!(database.num_blocks_analyzed, num_blocks);
 	// each block only has the coinbase transaction
 	assert_eq!(database.transactions_by_hash.len(), num_blocks as usize);	

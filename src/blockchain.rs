@@ -1,14 +1,14 @@
 use serde::{Serialize, Deserialize};
 use std::collections::VecDeque;
 use k256::{Secp256k1};
-use ecdsa::{SigningKey, VerifyingKey};
-use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
+use ecdsa::{VerifyingKey};
 
 use crate::Hash;
 use crate::script::{Script, StackOp, execute_scripts, hash_160_to_bytes};
 use crate::transaction::{Transaction, TxOut, TxIn, TransactionError};
 use crate::database::{TransactionDataBase};
-use crate::block::{Block, DifficultyBits, BlockHeader, TransactionList};
+use crate::block::{Block, DifficultyBits, BlockHeader};
+use crate::merkle;
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of satoshis that get rewarded during the first halvening period (50 Bitcoin))
@@ -18,7 +18,7 @@ const STARTING_DIFFICULTY_BITS: DifficultyBits = DifficultyBits(0x1ec3a30c); // 
 pub struct BlockChain {
     pub blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,
-    max_transactions_per_block: u32, // how many transactions can we fit in a block (TODO: actually a function of overall blocksize, not num transactions
+    max_transactions_per_block: usize, // how many transactions can we fit in a block (TODO: actually a function of overall blocksize, not num transactions
     mempool: VecDeque<Transaction>, // the mempool is a queue of transactions that want to get added to a block (FIFO at least for now)
     transaction_database: TransactionDataBase, // keep track of previous transactions in an easier way. helps verify
 }
@@ -127,16 +127,16 @@ impl BlockChain {
     /// TODO: we should validate the block here or no? (yes, since the mined block could/would come from someone else)
     pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
-	self.transaction_database.read_blocks(&self.blocks);
+	self.transaction_database.read_blocks(&self);
         println!("added a block; current len = {:?}", self.len());        
     }
 
     /// given the recipient of the coinbase transaction, we construct and return a list of transactions to include in the
     /// next candidate block.
     /// The coinbase transaction is always the first in the list.
-    fn construct_transaction_list(&mut self, recipient: VerifyingKey<Secp256k1>) -> TransactionList {
+    fn construct_transaction_list(&mut self, recipient: VerifyingKey<Secp256k1>) -> Vec<Transaction> {
 	let transaction = self.construct_coinbase_transaction(recipient);
-	let mut transaction_list = TransactionList::new(vec![transaction]);
+	let mut transaction_list = vec![transaction];
 	if !self.is_empty() {
 	    // if is_empty()< 1 (i.e. this is the genesis block), then do not go to the mempool
 	    while self.mempool.len() > 0 && transaction_list.len() < self.max_transactions_per_block{
@@ -167,14 +167,14 @@ impl BlockChain {
 	let block_header = BlockHeader::new(
 	    1,
 	    previous_block_hash,
-	    transaction_list.get_merkle_root(), // 32 bytes: A hash of the root of the merkle tree of this block’s transactions)
+	    merkle::get_merkle_root(transaction_list),
 	    self.difficulty_bits
 	);
 	
 	Block {
 	    block_size: 100, // TODO: how is this measured?
 	    block_header: block_header,
-	    transaction_count: transaction_list.len(),
+	    transaction_count: transaction_list.len() as u32,
 	    transaction_list: transaction_list,
 	}
     }
@@ -188,6 +188,8 @@ impl BlockChain {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ecdsa::{SigningKey};
+    use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
     
     #[test]
     fn run_basic_blocks() {
