@@ -4,6 +4,10 @@ use crate::DoubleSHA;
 use itertools::Itertools;
 use sha2::{Sha256, Digest};
 
+
+/// given a vec of data, construct a merkle root by repeatedly concatting pairs of hashes
+/// to reduce the final result into a single hash
+/// todo: need a good unit test
 pub fn get_merkle_root<T: DoubleSHA>(data: &Vec<T>) -> Hash {
     let mut hashes: Vec<Hash> = data.iter().map(|d| d.sha256d()).collect(); // first hash each datum
     while hashes.len() > 1 {
