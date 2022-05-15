@@ -55,7 +55,7 @@ impl BlockChain {
 	let mut tx_in_value_sum = 0; // the total value coming into this transaction from tx_ins
 	for tx_in in &transaction.tx_ins {
 	    // each tx_in must be unlocked
-	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence  } = tx_in {
+	    if let TxIn::TxPrevious {tx_hash, tx_out_index, unlocking_script, sequence: _  } = tx_in {
 		let transaction_prev_opt = self.transaction_database.get(&tx_hash);
 		if let Some(transaction_prev) = transaction_prev_opt {
                     // first check if the script actually unlocks it
@@ -127,7 +127,7 @@ impl BlockChain {
     /// TODO: we should validate the block here or no? (yes, since the mined block could/would come from someone else)
     pub fn add_block(&mut self, block: Block) {
 	self.blocks.push(block);
-	self.transaction_database.read_blocks(&self);
+	self.transaction_database.read_blocks(&self.blocks);
         println!("added a block; current len = {:?}", self.len());        
     }
 
@@ -167,7 +167,7 @@ impl BlockChain {
 	let block_header = BlockHeader::new(
 	    1,
 	    previous_block_hash,
-	    merkle::get_merkle_root(transaction_list),
+	    merkle::get_merkle_root(&transaction_list),
 	    self.difficulty_bits
 	);
 	
@@ -189,7 +189,7 @@ impl BlockChain {
 mod tests {
     use super::*;
     use ecdsa::{SigningKey};
-    use ecdsa::signature::{Signer, Verifier, Signature}; // trait in scope for signing a message
+    use ecdsa::signature::{Signer, Signature}; // trait in scope for signing a message
     
     #[test]
     fn run_basic_blocks() {

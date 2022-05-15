@@ -7,7 +7,7 @@ use std::error;
 use std::fs::File;
 use std::io::{BufReader, Write};
 
-use serde::{Serialize, Deserialize};
+//use serde::{Serialize, Deserialize};
 
 use k256::{Secp256k1};
 use bitcoin::blockchain::{BlockChain};

@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use crate::transaction::{Transaction};
 use crate::{Hash};
-use crate::blockchain::{BlockChain};
+use crate::block::{Block};
 
 /// This struct holds a mapping from transaction hash to the transaction for all exisitng blocks
 /// It also keeps a record of how many blocks it has seen so far
@@ -26,9 +26,9 @@ impl TransactionDataBase {
 	
     /// given a blockchain, we read blocks that we have not already read yet, and include the
     /// TxOuts from the newly read blocks into our storage
-    pub fn read_blocks(&mut self, chain: &BlockChain) { //blocks: &Vec<Block>) {
+    pub fn read_blocks(&mut self, blocks: &Vec<Block>) {
 	// TODO: impl iterator for blockchain struct itself?
-	for block in chain.blocks.into_iter().skip(self.num_blocks_analyzed as usize) {
+	for block in blocks.iter().skip(self.num_blocks_analyzed as usize) {
 	    for transaction in &block.transaction_list {
 		println!("transaction = {:?}", transaction);
 		let transaction_hash = transaction.hash();
@@ -44,8 +44,8 @@ impl TransactionDataBase {
 
 /// eventually i think the blocks will be stored differently than a Vec<Block>
 /// TODO
-struct BlockDataBase {}
-struct BlockHeaderDataBase {}
+//struct BlockDataBase {}
+//struct BlockHeaderDataBase {}
 
 
 #[cfg(test)]
@@ -53,7 +53,8 @@ mod tests {
     use super::*;
     use ecdsa::{SigningKey, VerifyingKey};
     use k256::{Secp256k1};
-
+    use crate::blockchain::BlockChain;
+    
     #[test]
     fn test_read_blocks() {
 	let mut chain = BlockChain::new();	
@@ -70,7 +71,7 @@ mod tests {
 	}
 
 	let mut database = TransactionDataBase::new();
-	database.read_blocks(&chain);
+	database.read_blocks(&chain.blocks);
 	assert_eq!(database.num_blocks_analyzed, num_blocks);
 	// each block only has the coinbase transaction
 	assert_eq!(database.transactions_by_hash.len(), num_blocks as usize);	

@@ -5,7 +5,7 @@ use sha2::{Sha256, Digest};
 
 use crate::script::{Script};
 use crate::{Hash};
-
+use crate::DoubleSHA;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TxIn {
@@ -81,6 +81,17 @@ impl Transaction {
 
 }
 
+impl DoubleSHA for Transaction {
+
+    fn sha256d(&self) -> Hash {
+	let first_hash_vec: Vec<u8> = self.hash_to_bytes();
+        let mut hasher_2 = Sha256::new();
+        hasher_2.update(first_hash_vec);
+        let second_hash_vec = hasher_2.finalize().to_vec();
+        Hash::from(&second_hash_vec[..])
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TransactionError {
     InvalidScript,    
@@ -91,9 +102,9 @@ pub enum TransactionError {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-
+    use crate::script::StackOp;
+    
     #[test]
     fn test_coin_base() {
 	let tx_in = TxIn::Coinbase {

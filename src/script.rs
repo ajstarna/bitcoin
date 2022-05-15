@@ -306,6 +306,7 @@ mod tests {
 	assert_eq!(is_valid, false);
     }
 
+    #[test]    
     fn test_op_verify2() {
 	// verify will reuturn false, even though the stack would end with true on top
 	let locking_script = Script {ops: vec![StackOp::Bool(false), StackOp::OpVerify]};
