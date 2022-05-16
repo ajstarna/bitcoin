@@ -13,15 +13,17 @@ The project is a library, and there is a very minimal in progress client CLI tha
 1. Transactions (Signing and verifying)
 2. Script language (a subset of, at least)
 3. Blocks and headers (and their hashing)
-4. Mining/Block creation
-5. Simple blockchain representation as a vec of blocks.
-6. Simple mempool with validity checking
-7. Chain persistance on disk saved as a json representation using serde
+4. Merkle roots
+5. Mining/Block creation
+6. Simple blockchain representation as a vec of blocks.
+7. Simple mempool with validity checking and priority by tip amount
+8. Chain persistance on disk saved as a json representation using serde
+9. Mining client
 
 # Todo
-1. Merkle roots
-2. Wallets/address; creation/submit transactions to mempool
-3. Networking between nodes
-4. Better chain representation/handle temporary forks
-5. Longest chain consensus
+1. Wallets/address; creation/submit transactions to mempool
+2. Networking between nodes
+3. Better chain representation/handle temporary forks
+4. Longest chain consensus
+5. light node/SPV?
 6. set up some github actions
