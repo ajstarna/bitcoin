@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-use std::collections::VecDeque;
 use k256::{Secp256k1};
 use ecdsa::{VerifyingKey};
 
@@ -7,8 +6,10 @@ use crate::Hash;
 use crate::script::{Script, StackOp, execute_scripts, hash_160_to_bytes};
 use crate::transaction::{Transaction, TxOut, TxIn, TransactionError};
 use crate::database::{TransactionDataBase};
+use crate::mempool::{Mempool, TransactionWithTip};
 use crate::block::{Block, DifficultyBits, BlockHeader};
 use crate::merkle;
+
 
 const BLOCK_HALVENING: u32 = 210_000; // after this many blocks, the block reward gets cut in half
 const ORIGINAL_COINBASE: u32 = 21_000_000 * 50; // the number of satoshis that get rewarded during the first halvening period (50 Bitcoin))
@@ -19,7 +20,7 @@ pub struct BlockChain {
     pub blocks: Vec<Block>, // TODO: move this to a DB. for now a vec should suffice. (How to handle forks though?)
     difficulty_bits: DifficultyBits,
     max_transactions_per_block: usize, // how many transactions can we fit in a block (TODO: actually a function of overall blocksize, not num transactions
-    mempool: VecDeque<Transaction>, // the mempool is a queue of transactions that want to get added to a block (FIFO at least for now)
+    mempool: Mempool, // the mempool is a heap of transactions that want to get added to a block (prio given by the tip to the miner)
     transaction_database: TransactionDataBase, // keep track of previous transactions in an easier way. helps verify
 }
 
@@ -30,7 +31,7 @@ impl BlockChain {
 	    blocks: Vec::new(),
 	    difficulty_bits: STARTING_DIFFICULTY_BITS, //TODO: change over time
 	    max_transactions_per_block: 1000,
-	    mempool: VecDeque::new(),
+	    mempool: Mempool::new(),
 	    transaction_database: TransactionDataBase::new(),
 	}
     }
@@ -81,14 +82,12 @@ impl BlockChain {
 
 	// mext check that the tx_out values don't sum to more than the tx_in values
         let tx_out_value_sum = transaction.tx_outs.iter().fold(0, |sum, tx_out| sum + tx_out.value);
+        if tx_out_value_sum > tx_in_value_sum {
+	    return Err(TransactionError::OverSpend);            
+        }
+	let miner_tip = tx_in_value_sum - tx_out_value_sum; 
         
-	if tx_out_value_sum > tx_in_value_sum {
-	    return Err(TransactionError::OverSpend);
-	}
-
-	let _miner_tip = tx_in_value_sum - tx_out_value_sum; // todo: use this for priority in mempool?
-
-	self.mempool.push_back(transaction);
+	self.mempool.push(TransactionWithTip::new(transaction, miner_tip));
 	Ok(())
     }
     
@@ -98,7 +97,7 @@ impl BlockChain {
 	coinbase
     }
 
-    fn construct_coinbase_transaction(&self, recipient: VerifyingKey<Secp256k1>) -> Transaction {
+    fn construct_coinbase_transaction(&self, recipient: VerifyingKey<Secp256k1>, miner_tip: u32) -> Transaction {
 	let tx_in = TxIn::Coinbase {
 	    coinbase: self.len(), // the coinbase field is sorta arbitrary, but adding the height here makes sure there won't be duplicate hashes of coinbase transactions,
 	    sequence: 5580,
@@ -112,7 +111,7 @@ impl BlockChain {
 	let locking_script = Script {ops: vec![StackOp::OpDup, StackOp::OpHash160, StackOp::Bytes(pub_hash.into_boxed_slice()), StackOp::OpEqVerify, StackOp::OpCheckSig]};
         
 	let tx_out = TxOut {
-	    value: reward, // since there are no additional transaction fees this block, the tx_out is simply the entire reward
+	    value: reward + miner_tip, // the output is the coinbase reward plus the miner tip from all transactions
 	    locking_script: locking_script,
 	};
 	Transaction {
@@ -135,15 +134,21 @@ impl BlockChain {
     /// next candidate block.
     /// The coinbase transaction is always the first in the list.
     fn construct_transaction_list(&mut self, recipient: VerifyingKey<Secp256k1>) -> Vec<Transaction> {
-	let transaction = self.construct_coinbase_transaction(recipient);
-	let mut transaction_list = vec![transaction];
+	let mut transaction_list = vec![];
+        let mut total_tip = 0;
 	if !self.is_empty() {
 	    // if is_empty()< 1 (i.e. this is the genesis block), then do not go to the mempool
 	    while self.mempool.len() > 0 && transaction_list.len() < self.max_transactions_per_block{
-		let transaction = self.mempool.pop_front().unwrap(); // we already checked for len > 0, so can unwrap
+		let TransactionWithTip{miner_tip, transaction} = self.mempool.pop().unwrap(); // we already checked for len > 0, so can unwrap
+                total_tip += miner_tip;
 		transaction_list.push(transaction);
 	    }
 	}
+	let coinbase_transaction = self.construct_coinbase_transaction(recipient, total_tip);
+
+        // I guess it would be more efficient to start with the coinbase transaction in the vec, and then add the tip to modify the transaction in place,
+        // but that seems less readable, so for now I am choosing to simply do one expensive insert at 0
+        transaction_list.insert(0, coinbase_transaction);
 	transaction_list
     }
 

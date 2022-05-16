@@ -6,7 +6,7 @@ mod block;
 pub mod blockchain;
 mod database;
 mod merkle;
-
+mod mempool;
 pub type Hash = U256;
 
 /// This trait defines a function that returns a hash created by
